@@ -22,6 +22,12 @@ interface Property {
   boligtype: string;
 }
 
+interface MarkerEntry {
+  marker: L.Marker;
+  property: Property;
+  dotEl: HTMLDivElement | null;
+}
+
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
 const CURRENT_YEAR = 2026;
 
@@ -76,7 +82,7 @@ function ageTagStyle(years: number): string {
 export default function ProspekteringView() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<L.Marker[]>([]);
+  const markerEntriesRef = useRef<MarkerEntry[]>([]);
 
   const [query, setQuery] = useState("Thorvald Meyers gate");
   const [yearFilter, setYearFilter] = useState(2010);
@@ -88,7 +94,7 @@ export default function ProspekteringView() {
 
   const selectedProperty = properties.find((p) => p.id === selectedId) ?? null;
 
-  // ── Init map ──
+  // ── Init map (once) ──
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
@@ -100,7 +106,6 @@ export default function ProspekteringView() {
 
     L.control.zoom({ position: "topright" }).addTo(map);
 
-    // Kartverket tiles with OSM fallback
     const kartverket = L.tileLayer(
       "https://opencache.statkart.no/gatekeeper/gk/gk.open_gmaps?layers=topo4&zoom={z}&x={x}&y={y}",
       {
@@ -124,27 +129,27 @@ export default function ProspekteringView() {
     };
   }, []);
 
-  // ── Update markers when properties/filter change ──
-  const updateMarkers = useCallback(() => {
+  // ── Create markers when properties change (NOT on filter change) ──
+  useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    markersRef.current.forEach((m) => map.removeLayer(m));
-    markersRef.current = [];
+    // Remove old markers
+    markerEntriesRef.current.forEach((e) => map.removeLayer(e.marker));
+    markerEntriesRef.current = [];
 
+    // Create new markers
     properties.forEach((p) => {
-      const isVisible = p.soldYear <= yearFilter;
       const color = ageColor(p.yearsSold);
-      const opacity = isVisible ? 1 : 0.12;
 
       const icon = L.divIcon({
         className: "",
-        html: `<div style="
+        html: `<div class="marker-dot" style="
           width:14px;height:14px;border-radius:50%;
           background:${color};border:2px solid rgba(255,255,255,0.7);
           box-shadow:0 2px 8px rgba(0,0,0,0.4);
-          opacity:${opacity};
-          transition: opacity 0.3s;
+          opacity:1;
+          transition: opacity 0.2s ease;
         "></div>`,
         iconSize: [14, 14],
         iconAnchor: [7, 7],
@@ -154,16 +159,25 @@ export default function ProspekteringView() {
         .addTo(map)
         .on("click", () => setSelectedId(p.id));
 
-      markersRef.current.push(marker);
-    });
-  }, [properties, yearFilter]);
+      // Get the actual DOM element for fast opacity updates
+      const el = marker.getElement();
+      const dotEl = el?.querySelector(".marker-dot") as HTMLDivElement | null;
 
+      markerEntriesRef.current.push({ marker, property: p, dotEl });
+    });
+  }, [properties]);
+
+  // ── Update marker opacity when filter changes (no re-creation!) ──
   useEffect(() => {
-    updateMarkers();
-  }, [updateMarkers]);
+    markerEntriesRef.current.forEach(({ property, dotEl }) => {
+      if (!dotEl) return;
+      const isVisible = property.soldYear <= yearFilter;
+      dotEl.style.opacity = isVisible ? "1" : "0.1";
+    });
+  }, [yearFilter]);
 
   // ── Search ──
-  const doSearch = async () => {
+  const doSearch = useCallback(async () => {
     if (!query.trim()) return;
     setLoading(true);
     setSearched(true);
@@ -229,8 +243,9 @@ export default function ProspekteringView() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [query]);
 
+  // Auto-search on mount
   useEffect(() => {
     const timer = setTimeout(doSearch, 500);
     return () => clearTimeout(timer);
