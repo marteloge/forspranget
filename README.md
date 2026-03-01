@@ -8,8 +8,8 @@
 
 - **Framework:** Next.js 15 + TypeScript
 - **Styling:** Tailwind CSS
-- **Database:** Supabase (Postgres)
-- **Auth:** Supabase Auth (kommer i fase 2)
+- **Database:** Neon (serverless Postgres)
+- **Auth:** NextAuth / Neon (kommer i fase 2)
 - **AI:** OpenAI GPT-4o (kommer i fase 2)
 - **Hosting:** Vercel
 
@@ -27,31 +27,23 @@
 ```bash
 npm install
 cp .env.example .env.local
-# Fyll inn Supabase-nøkler
+# Fyll inn DATABASE_URL fra Neon
 npm run dev
 ```
 
-## Supabase-oppsett
+## Database-oppsett (Neon)
 
-Kjør denne SQL-migrasjonen i Supabase:
+1. Koble til Neon via **Vercel Marketplace-integrasjonen** (gratis, setter DATABASE_URL automatisk)
+2. Kjør denne SQL-migrasjonen i Neon Console:
 
 ```sql
-CREATE TABLE waitlist (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS waitlist (
+  id SERIAL PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   source TEXT DEFAULT 'forspranget.no',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Index for rask e-postsøk
-CREATE INDEX waitlist_email_idx ON waitlist(email);
-
--- Row Level Security
-ALTER TABLE waitlist ENABLE ROW LEVEL SECURITY;
-
--- Kun server-side (service role) kan lese/skrive
-CREATE POLICY "Service role only" ON waitlist
-  USING (false)
-  WITH CHECK (false);
+CREATE INDEX IF NOT EXISTS waitlist_email_idx ON waitlist(email);
 ```

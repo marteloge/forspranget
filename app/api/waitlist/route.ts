@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { neon } from "@neondatabase/serverless";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,27 +21,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("Missing Supabase env vars");
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      console.error("Missing DATABASE_URL env var");
       return NextResponse.json(
         { error: "Server configuration error" },
         { status: 500 }
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const sql = neon(databaseUrl);
 
     // Check if already registered
-    const { data: existing } = await supabase
-      .from("waitlist")
-      .select("id")
-      .eq("email", email.toLowerCase())
-      .single();
+    const existing = await sql`
+      SELECT id FROM waitlist WHERE email = ${email.toLowerCase()} LIMIT 1
+    `;
 
-    if (existing) {
+    if (existing.length > 0) {
       return NextResponse.json(
         { error: "already_registered" },
         { status: 409 }
@@ -49,17 +45,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert new entry
-    const { error } = await supabase.from("waitlist").insert({
-      email: email.toLowerCase(),
-      name: name.trim(),
-      source: "forspranget.no",
-      created_at: new Date().toISOString(),
-    });
-
-    if (error) {
-      console.error("Supabase insert error:", error);
-      return NextResponse.json({ error: "Database error" }, { status: 500 });
-    }
+    await sql`
+      INSERT INTO waitlist (email, name, source, created_at)
+      VALUES (
+        ${email.toLowerCase()},
+        ${name.trim()},
+        'forspranget.no',
+        NOW()
+      )
+    `;
 
     return NextResponse.json({ success: true });
   } catch (err) {
