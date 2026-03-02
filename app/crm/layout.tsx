@@ -28,6 +28,9 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
               <Link href="/crm/contacts" className="text-gray-400 hover:text-white transition-colors">
                 Kontakter
               </Link>
+              <Link href="/crm/properties" className="text-gray-400 hover:text-white transition-colors">
+                Adresser
+              </Link>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -42,6 +45,9 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
           </Link>
           <Link href="/crm/contacts" className="text-gray-400 hover:text-white transition-colors">
             Kontakter
+          </Link>
+          <Link href="/crm/properties" className="text-gray-400 hover:text-white transition-colors">
+            Adresser
           </Link>
         </div>
       </nav>
