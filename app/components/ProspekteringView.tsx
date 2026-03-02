@@ -5,6 +5,14 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
+interface AddressSuggestion {
+  tekst: string;
+  gatenavn?: string;
+  lat: number;
+  lon: number;
+  kommunenavn?: string;
+}
+
 interface Property {
   id: number;
   address: string;
@@ -128,6 +136,12 @@ export default function ProspekteringView() {
   const [searched, setSearched] = useState(false);
   const [tileStyleIdx, setTileStyleIdx] = useState(2);
 
+  // Address autocomplete
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [validAddressSelected, setValidAddressSelected] = useState(true); // true on init (default query)
+  const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const selectedProperty = properties.find((p) => p.id === selectedId) ?? null;
 
   // ── Init map (once) ──
@@ -219,16 +233,46 @@ export default function ProspekteringView() {
     });
   }, [yearFilter]);
 
-  // ── Search ──
-  const doSearch = useCallback(async () => {
-    if (!query.trim()) return;
+  // ── Address autocomplete ──
+  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setQuery(val);
+    setValidAddressSelected(false); // Reset until user picks from dropdown
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current);
+    if (val.length < 3) { setSuggestions([]); setShowSuggestions(false); return; }
+    suggestTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/address-search?q=${encodeURIComponent(val)}`);
+        const data = await res.json();
+        setSuggestions(data.adresser || []);
+        setShowSuggestions((data.adresser || []).length > 0);
+      } catch { /* ignore */ }
+    }, 300);
+  };
+
+  const selectSuggestion = useCallback((s: AddressSuggestion) => {
+    const searchTerm = s.gatenavn || s.tekst;
+    setQuery(searchTerm);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setValidAddressSelected(true);
+    doSearchWithTerm(searchTerm);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doSearchWithTerm]);
+
+  // Cleanup on unmount
+  useEffect(() => () => { if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current); }, []);
+
+  // ── Search (shared logic) ──
+  const doSearchWithTerm = useCallback(async (term: string) => {
+    if (!term.trim()) return;
     setLoading(true);
     setSearched(true);
     setSelectedId(null);
     setProperties([]);
 
     try {
-      const url = `https://ws.geonorge.no/adresser/v1/sok?sok=${encodeURIComponent(query.trim())}&treffPerSide=50&side=1`;
+      const url = `https://ws.geonorge.no/adresser/v1/sok?sok=${encodeURIComponent(term.trim())}&treffPerSide=50&side=1`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -286,7 +330,9 @@ export default function ProspekteringView() {
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, []);
+
+  const doSearch = useCallback(() => doSearchWithTerm(query), [query, doSearchWithTerm]);
 
   // Auto-search on mount
   useEffect(() => {
@@ -320,18 +366,42 @@ export default function ProspekteringView() {
             Finn potensielle selgere
           </h2>
           <div className="flex gap-2 mb-4">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && doSearch()}
-              placeholder="Gate, bydel eller postnummer..."
-              className="flex-1 bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#c9a96e]/30 transition-colors"
-            />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={query}
+                onChange={handleQueryChange}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                placeholder="Søk gate eller postnummer..."
+                className={`w-full bg-white/[0.03] border rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none transition-colors ${
+                  validAddressSelected
+                    ? "border-white/[0.08] focus:border-[#c9a96e]/30"
+                    : "border-white/[0.08] focus:border-white/20"
+                }`}
+              />
+              {showSuggestions && suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d1220] border border-white/[0.12] rounded-lg overflow-hidden z-50 shadow-2xl">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onMouseDown={() => selectSuggestion(s)}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/[0.05] hover:text-[#c9a96e] transition-colors border-b border-white/[0.04] last:border-0 flex items-center gap-2"
+                    >
+                      <span className="text-[#c9a96e]/40 text-xs flex-shrink-0">📍</span>
+                      <span className="truncate">{s.tekst}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!validAddressSelected && query.length >= 3 && (
+                <p className="text-[10px] text-gray-600 mt-1 px-1">Velg en adresse fra listen</p>
+              )}
+            </div>
             <button
               onClick={doSearch}
-              disabled={loading}
-              className="px-5 py-2.5 bg-gradient-to-r from-[#c9a96e] to-[#dfc090] text-[#0a0e1a] font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || !validAddressSelected}
+              className="px-5 py-2.5 bg-gradient-to-r from-[#c9a96e] to-[#dfc090] text-[#0a0e1a] font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed self-start"
             >
               {loading ? "..." : "Søk"}
             </button>
