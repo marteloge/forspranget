@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
 interface GeneratedText {
   finn: string;
   instagram: string;
   sms: string;
+}
+
+interface Version {
+  id: number;
+  texts: GeneratedText;
+  feedback: string | null;
+  timestamp: Date;
 }
 
 type Tone = "professional" | "warm" | "engaging";
@@ -39,36 +46,54 @@ export default function BoligtekstView() {
   const [notes, setNotes] = useState("");
   const [tone, setTone] = useState<Tone>("professional");
 
-  // Output state
-  const [result, setResult] = useState<GeneratedText | null>(null);
+  // Version state
+  const [versions, setVersions] = useState<Version[]>([]);
+  const [activeVersionId, setActiveVersionId] = useState<number>(0);
+  const [feedback, setFeedback] = useState("");
+
+  // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<"finn" | "instagram" | "sms">("finn");
   const [copied, setCopied] = useState(false);
+  const [streamingText, setStreamingText] = useState("");
+  const abortRef = useRef<AbortController | null>(null);
 
   const canSubmit = address.trim() && sqm.trim();
+  const activeVersion = versions.find((v) => v.id === activeVersionId) ?? null;
+  const currentText = loading && streamingText ? streamingText : null;
 
-  const handleGenerate = async () => {
+  const buildPayload = useCallback((feedbackText?: string) => {
+    const previousVersion = versions.length > 0 ? versions[versions.length - 1] : null;
+    return {
+      address,
+      boligtype,
+      sqm: Number(sqm),
+      rooms: Number(rooms) || undefined,
+      floor: floor || undefined,
+      buildYear: Number(buildYear) || undefined,
+      highlights,
+      notes,
+      tone,
+      previousFinnText: previousVersion?.texts.finn || undefined,
+      feedback: feedbackText || undefined,
+    };
+  }, [address, boligtype, sqm, rooms, floor, buildYear, highlights, notes, tone, versions]);
+
+  const handleGenerate = useCallback(async (feedbackText?: string) => {
     if (!canSubmit) return;
     setLoading(true);
     setError("");
-    setResult(null);
+    setStreamingText("");
+
+    abortRef.current = new AbortController();
 
     try {
       const res = await fetch("/api/generate-text", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          address,
-          boligtype,
-          sqm: Number(sqm),
-          rooms: Number(rooms) || undefined,
-          floor: floor || undefined,
-          buildYear: Number(buildYear) || undefined,
-          highlights,
-          notes,
-          tone,
-        }),
+        body: JSON.stringify(buildPayload(feedbackText)),
+        signal: abortRef.current.signal,
       });
 
       if (!res.ok) {
@@ -76,23 +101,97 @@ export default function BoligtekstView() {
         throw new Error(data.error || "Noe gikk galt. Prøv igjen.");
       }
 
-      const data = await res.json();
-      setResult(data);
-      setActiveTab("finn");
+      const contentType = res.headers.get("content-type") || "";
+
+      if (contentType.includes("text/event-stream") && res.body) {
+        // ── Streaming response ──
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let finnText = "";
+        let instagramText = "";
+        let smsText = "";
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+
+            try {
+              const event = JSON.parse(data);
+              if (event.type === "finn_chunk") {
+                finnText += event.text;
+                setStreamingText(finnText);
+              } else if (event.type === "instagram") {
+                instagramText = event.text;
+              } else if (event.type === "sms") {
+                smsText = event.text;
+              }
+            } catch {
+              // skip unparseable lines
+            }
+          }
+        }
+
+        const newVersion: Version = {
+          id: Date.now(),
+          texts: { finn: finnText, instagram: instagramText, sms: smsText },
+          feedback: feedbackText || null,
+          timestamp: new Date(),
+        };
+        setVersions((prev) => [...prev, newVersion]);
+        setActiveVersionId(newVersion.id);
+        setActiveTab("finn");
+      } else {
+        // ── JSON response (fallback / no streaming) ──
+        const data = await res.json();
+        const newVersion: Version = {
+          id: Date.now(),
+          texts: data,
+          feedback: feedbackText || null,
+          timestamp: new Date(),
+        };
+        setVersions((prev) => [...prev, newVersion]);
+        setActiveVersionId(newVersion.id);
+        setActiveTab("finn");
+      }
+
+      setFeedback("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Noe gikk galt.");
+      if ((e as Error).name !== "AbortError") {
+        setError(e instanceof Error ? e.message : "Noe gikk galt.");
+      }
     } finally {
       setLoading(false);
+      setStreamingText("");
+      abortRef.current = null;
     }
-  };
+  }, [canSubmit, buildPayload]);
 
   const handleCopy = async () => {
-    if (!result) return;
-    const text = activeTab === "finn" ? result.finn : activeTab === "instagram" ? result.instagram : result.sms;
+    const texts = activeVersion?.texts;
+    if (!texts) return;
+    const text = activeTab === "finn" ? texts.finn : activeTab === "instagram" ? texts.instagram : texts.sms;
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const handleRegenerate = () => {
+    handleGenerate(feedback.trim() || undefined);
+  };
+
+  const displayText = currentText || (activeVersion
+    ? (activeTab === "finn" ? activeVersion.texts.finn : activeTab === "instagram" ? activeVersion.texts.instagram : activeVersion.texts.sms)
+    : "");
 
   return (
     <div className="flex h-[calc(100vh-52px)] bg-[#0a0e1a]">
@@ -228,7 +327,7 @@ export default function BoligtekstView() {
 
           {/* Generate button */}
           <button
-            onClick={handleGenerate}
+            onClick={() => handleGenerate()}
             disabled={!canSubmit || loading}
             className="w-full py-3 bg-gradient-to-r from-[#c9a96e] to-[#dfc090] text-[#0a0e1a] font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
@@ -242,7 +341,7 @@ export default function BoligtekstView() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 0 0-2.455 2.456Z" />
                 </svg>
-                Generer boligtekst
+                {versions.length > 0 ? "Generer fra scratch" : "Generer boligtekst"}
               </>
             )}
           </button>
@@ -260,7 +359,7 @@ export default function BoligtekstView() {
 
       {/* ── RIGHT: Output ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {!result && !loading ? (
+        {versions.length === 0 && !loading ? (
           /* Empty state */
           <div className="flex-1 flex flex-col items-center justify-center text-gray-600 p-12">
             <div className="w-20 h-20 rounded-2xl bg-[#c9a96e]/[0.06] border border-[#c9a96e]/10 flex items-center justify-center mb-6">
@@ -273,8 +372,6 @@ export default function BoligtekstView() {
               Fyll inn boligdetaljer til venstre og trykk <span className="text-[#c9a96e]">Generer boligtekst</span>.
               Du får en FINN-annonse, Instagram-caption og SMS — klar til bruk.
             </p>
-
-            {/* Feature highlights */}
             <div className="grid grid-cols-3 gap-4 mt-10 max-w-lg">
               {[
                 { icon: "🏠", title: "FINN-klar", desc: "Optimalisert for Norges største boligportal" },
@@ -289,89 +386,170 @@ export default function BoligtekstView() {
               ))}
             </div>
           </div>
-        ) : loading ? (
-          /* Loading state */
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
-            <div className="w-12 h-12 border-2 border-white/[0.06] border-t-[#c9a96e] rounded-full animate-spin mb-4" />
-            <p className="text-sm font-medium text-white mb-1">Skriver boligtekst...</p>
-            <p className="text-xs text-gray-600">AI analyserer detaljer og genererer tekst på norsk</p>
-          </div>
-        ) : result ? (
-          /* Results */
+        ) : (
+          /* Results (or streaming) */
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Tab bar */}
-            <div className="border-b border-white/[0.06] px-6 pt-4 flex items-end gap-1">
-              {([
-                { key: "finn" as const, label: "FINN-annonse", icon: "🏠" },
-                { key: "instagram" as const, label: "Instagram", icon: "📱" },
-                { key: "sms" as const, label: "SMS", icon: "💬" },
-              ]).map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`px-4 py-2.5 text-[12px] font-medium rounded-t-lg transition-all duration-200 ${
-                    activeTab === tab.key
-                      ? "bg-white/[0.04] text-[#c9a96e] border border-white/[0.06] border-b-[#0a0e1a] -mb-px"
-                      : "text-gray-500 hover:text-gray-300"
-                  }`}
-                >
-                  <span className="mr-1.5">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              ))}
-
-              {/* Copy button */}
-              <div className="ml-auto mb-2">
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-white/[0.04] border border-white/[0.06] text-gray-400 hover:text-[#c9a96e] hover:border-[#c9a96e]/20 transition-all"
-                >
-                  {copied ? (
-                    <>
-                      <svg className="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                      </svg>
-                      Kopiert!
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                      </svg>
-                      Kopier tekst
-                    </>
+            {/* Version pills + tab bar */}
+            <div className="border-b border-white/[0.06]">
+              {/* Version pills */}
+              {versions.length > 1 && (
+                <div className="px-6 pt-3 flex items-center gap-2">
+                  <span className="text-[10px] text-gray-600 uppercase tracking-wider mr-1">Versjon:</span>
+                  {versions.map((v, i) => (
+                    <button
+                      key={v.id}
+                      onClick={() => { setActiveVersionId(v.id); }}
+                      className={`px-2.5 py-1 text-[11px] rounded-md transition-all duration-200 ${
+                        activeVersionId === v.id
+                          ? "bg-[#c9a96e]/20 text-[#c9a96e] border border-[#c9a96e]/30"
+                          : "bg-white/[0.03] text-gray-500 border border-white/[0.06] hover:text-gray-300"
+                      }`}
+                      title={v.feedback ? "Feedback: " + v.feedback : "Første generering"}
+                    >
+                      V{i + 1}
+                      {v.feedback && (
+                        <svg className="w-2.5 h-2.5 inline ml-1 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                  {loading && (
+                    <div className="px-2.5 py-1 text-[11px] rounded-md bg-[#c9a96e]/10 text-[#c9a96e]/60 border border-[#c9a96e]/20 flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 border border-[#c9a96e]/40 border-t-[#c9a96e] rounded-full animate-spin" />
+                      V{versions.length + 1}
+                    </div>
                   )}
-                </button>
+                </div>
+              )}
+
+              {/* Format tabs */}
+              <div className="px-6 pt-3 pb-0 flex items-end gap-1">
+                {([
+                  { key: "finn" as const, label: "FINN-annonse", icon: "🏠" },
+                  { key: "instagram" as const, label: "Instagram", icon: "📱" },
+                  { key: "sms" as const, label: "SMS", icon: "💬" },
+                ]).map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`px-4 py-2.5 text-[12px] font-medium rounded-t-lg transition-all duration-200 ${
+                      activeTab === tab.key
+                        ? "bg-white/[0.04] text-[#c9a96e] border border-white/[0.06] border-b-[#0a0e1a] -mb-px"
+                        : "text-gray-500 hover:text-gray-300"
+                    }`}
+                  >
+                    <span className="mr-1.5">{tab.icon}</span>
+                    {tab.label}
+                  </button>
+                ))}
+
+                {/* Copy button */}
+                {activeVersion && !loading && (
+                  <div className="ml-auto mb-2">
+                    <button
+                      onClick={handleCopy}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-white/[0.04] border border-white/[0.06] text-gray-400 hover:text-[#c9a96e] hover:border-[#c9a96e]/20 transition-all"
+                    >
+                      {copied ? (
+                        <>
+                          <svg className="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                          </svg>
+                          Kopiert!
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9.75a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                          </svg>
+                          Kopier tekst
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Text content */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="max-w-2xl">
-                <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-6">
-                  <pre className="whitespace-pre-wrap text-sm text-gray-300 leading-relaxed font-sans">
-                    {activeTab === "finn" && result.finn}
-                    {activeTab === "instagram" && result.instagram}
-                    {activeTab === "sms" && result.sms}
-                  </pre>
-                </div>
+                {loading && !currentText ? (
+                  /* Loading state */
+                  <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+                    <div className="w-12 h-12 border-2 border-white/[0.06] border-t-[#c9a96e] rounded-full animate-spin mb-4" />
+                    <p className="text-sm font-medium text-white mb-1">
+                      {versions.length > 0 ? "Genererer ny versjon..." : "Skriver boligtekst..."}
+                    </p>
+                    <p className="text-xs text-gray-600">AI analyserer detaljer og genererer tekst på norsk</p>
+                  </div>
+                ) : displayText ? (
+                  <>
+                    {/* Feedback badge for this version */}
+                    {activeVersion?.feedback && (
+                      <div className="mb-3 flex items-center gap-2 text-[11px] text-gray-500">
+                        <svg className="w-3.5 h-3.5 text-[#c9a96e]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 0 1 .865-.501 48.172 48.172 0 0 0 3.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+                        </svg>
+                        <span className="italic">&ldquo;{activeVersion.feedback}&rdquo;</span>
+                      </div>
+                    )}
 
-                {/* Word count */}
-                <div className="mt-3 flex items-center justify-between text-[10px] text-gray-600">
-                  <span>
-                    {(() => {
-                      const text = activeTab === "finn" ? result.finn : activeTab === "instagram" ? result.instagram : result.sms;
-                      const words = text.split(/\s+/).filter(Boolean).length;
-                      const chars = text.length;
-                      return `${words} ord · ${chars} tegn`;
-                    })()}
-                  </span>
-                  <span>Generert av AI · Kvalitetssjekk anbefalt</span>
-                </div>
+                    <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-6">
+                      <pre className="whitespace-pre-wrap text-sm text-gray-300 leading-relaxed font-sans">
+                        {displayText}
+                        {loading && <span className="inline-block w-0.5 h-4 bg-[#c9a96e] animate-pulse ml-0.5 align-text-bottom" />}
+                      </pre>
+                    </div>
+
+                    {/* Word count */}
+                    {!loading && (
+                      <div className="mt-3 flex items-center justify-between text-[10px] text-gray-600">
+                        <span>
+                          {displayText.split(/\s+/).filter(Boolean).length} ord &middot; {displayText.length} tegn
+                        </span>
+                        <span>V{versions.findIndex((v) => v.id === activeVersionId) + 1} &middot; Generert av AI</span>
+                      </div>
+                    )}
+                  </>
+                ) : null}
+
+                {/* ── Feedback + Regenerate ── */}
+                {!loading && versions.length > 0 && (
+                  <div className="mt-6 border-t border-white/[0.06] pt-5">
+                    <label className="text-[10px] text-[#c9a96e]/60 uppercase tracking-[0.2em] block mb-2">
+                      Juster og generer ny versjon
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={feedback}
+                        onChange={(e) => setFeedback(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && feedback.trim() && handleRegenerate()}
+                        placeholder="F.eks. &laquo;Mer fokus på utsikten&raquo; eller &laquo;Kortere innledning&raquo;"
+                        className="flex-1 bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#c9a96e]/30 transition-colors"
+                      />
+                      <button
+                        onClick={handleRegenerate}
+                        disabled={!feedback.trim()}
+                        className="px-4 py-2.5 bg-[#c9a96e]/20 border border-[#c9a96e]/30 text-[#c9a96e] font-semibold rounded-lg text-sm hover:bg-[#c9a96e]/30 transition-all disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1.5"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+                        </svg>
+                        Ny versjon
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-gray-700 mt-2">
+                      Skriv hva du vil endre, så lager AI en ny versjon basert på feedbacken din.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        ) : null}
+        )}
       </div>
     </div>
   );
