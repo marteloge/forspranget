@@ -1,8 +1,19 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Property, PropertyType, PROPERTY_TYPE_LABELS, formatRelative } from "@/lib/crm-types";
+
+interface AddressSuggestion {
+  tekst: string;
+  adressetekst?: string;
+  gatenavn?: string;
+  postnummer?: string;
+  poststed?: string;
+  lat?: number;
+  lon?: number;
+  kommunenavn?: string;
+}
 
 const PROPERTY_TYPES: PropertyType[] = ["apartment", "house", "cabin", "commercial", "land", "other"];
 
@@ -127,10 +138,48 @@ function AddPropertyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Address search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<AddressSuggestion | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    setSelectedAddress(null);
+    setForm((f) => ({ ...f, address: "", postal_code: "", city: "" }));
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (val.length < 3) { setSuggestions([]); setShowSuggestions(false); return; }
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/address-search?q=${encodeURIComponent(val)}`);
+        const data = await res.json();
+        setSuggestions(data.adresser || []);
+        setShowSuggestions((data.adresser || []).length > 0);
+      } catch { /* ignore */ }
+    }, 300);
+  };
+
+  const handleSelectAddress = (s: AddressSuggestion) => {
+    setSelectedAddress(s);
+    setSearchQuery(s.tekst);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setForm((f) => ({
+      ...f,
+      address: s.adressetekst || s.tekst,
+      postal_code: s.postnummer || "",
+      city: s.poststed || "",
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedAddress) return;
     setSaving(true);
     setError("");
 
@@ -158,27 +207,59 @@ function AddPropertyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">Adresse *</label>
-            <input value={form.address} onChange={(e) => set("address", e.target.value)} required
-              placeholder="Storgata 5"
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-[#c9a96e]/40 text-sm" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+          {/* Address search — vises bare når ingen adresse er valgt */}
+          {!selectedAddress ? (
             <div>
-              <label className="text-xs text-gray-500 mb-1 block">Postnummer</label>
-              <input value={form.postal_code} onChange={(e) => set("postal_code", e.target.value)}
-                placeholder="0182"
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-[#c9a96e]/40 text-sm" />
+              <label className="text-xs text-gray-500 mb-1 block">Søk adresse *</label>
+              <div className="relative">
+                <input
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                  placeholder="Skriv gate og nummer..."
+                  autoComplete="off"
+                  autoFocus
+                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-[#c9a96e]/40 text-sm"
+                />
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d1220] border border-white/[0.12] rounded-lg overflow-hidden z-50 shadow-2xl">
+                    {suggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onMouseDown={() => handleSelectAddress(s)}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/[0.05] hover:text-[#c9a96e] transition-colors border-b border-white/[0.04] last:border-0 flex items-center gap-2"
+                      >
+                        <span className="text-[#c9a96e]/40 text-xs flex-shrink-0">📍</span>
+                        <span className="truncate">{s.tekst}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {searchQuery.length >= 3 && !showSuggestions && suggestions.length === 0 && (
+                  <p className="text-[10px] text-gray-600 mt-1 px-1">Ingen treff — prøv et annet søk</p>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-gray-500 mb-1 block">By</label>
-              <input value={form.city} onChange={(e) => set("city", e.target.value)}
-                placeholder="Oslo"
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-[#c9a96e]/40 text-sm" />
+          ) : (
+            /* Valgt adresse — vises som kort, ikke redigerbar */
+            <div className="flex items-start gap-3 px-4 py-3 bg-[#c9a96e]/[0.06] border border-[#c9a96e]/25 rounded-xl">
+              <div className="mt-0.5 w-7 h-7 rounded-lg bg-[#c9a96e]/15 flex items-center justify-center flex-shrink-0 text-sm">📍</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] text-[#c9a96e]/70 uppercase tracking-[0.15em] mb-0.5">Valgt adresse</p>
+                <p className="text-sm text-white font-medium">{form.address}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{form.postal_code} {form.city}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setSelectedAddress(null); setSearchQuery(""); setForm(f => ({...f, address: "", postal_code: "", city: ""})); }}
+                className="text-gray-600 hover:text-gray-300 transition-colors text-xs px-2 py-1 rounded hover:bg-white/[0.05] flex-shrink-0"
+              >
+                Endre
+              </button>
             </div>
-          </div>
+          )}
 
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -197,7 +278,7 @@ function AddPropertyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
             <div>
               <label className="text-xs text-gray-500 mb-1 block">Est. verdi (kr)</label>
               <input value={form.estimated_value} onChange={(e) => set("estimated_value", e.target.value)}
-                placeholder="4200000"
+                placeholder="4 200 000"
                 className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-[#c9a96e]/40 text-sm" />
             </div>
           </div>
@@ -213,8 +294,8 @@ function AddPropertyModal({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-lg border border-white/[0.08] text-gray-400 hover:text-white transition-colors text-sm">Avbryt</button>
-            <button type="submit" disabled={saving}
-              className="flex-1 py-2.5 rounded-lg bg-gradient-to-r from-[#c9a96e] to-[#dfc090] text-[#0a0e1a] font-semibold hover:opacity-90 disabled:opacity-50 text-sm">
+            <button type="submit" disabled={saving || !selectedAddress}
+              className="flex-1 py-2.5 rounded-lg bg-gradient-to-r from-[#c9a96e] to-[#dfc090] text-[#0a0e1a] font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm">
               {saving ? "Lagrer..." : "Lagre adresse"}
             </button>
           </div>
