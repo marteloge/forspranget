@@ -24,7 +24,8 @@ const FEATURES = [
     ),
     title: "AI Boligbeskrivelser",
     desc: "FINN-optimaliserte tekster på norsk. Skrevet på 3 minutter, ikke 30. Tilpasset norsk kjøpspsykologi.",
-    badge: "Kommer snart",
+    href: "/boligtekst",
+    badge: "Tilgjengelig nå",
   },
   {
     icon: (
@@ -121,6 +122,12 @@ export default function Home() {
               className="text-sm text-gray-500 hover:text-[#c9a96e] transition-colors tracking-wide"
             >
               Prospektering
+            </Link>
+            <Link
+              href="/boligtekst"
+              className="text-sm text-gray-500 hover:text-[#c9a96e] transition-colors tracking-wide"
+            >
+              Boligtekst
             </Link>
             <a
               href="#venteliste"
