@@ -3,8 +3,12 @@
 @tailwind utilities;
 
 :root {
-  --background: #0f1629;
+  --background: #0a0e1a;
   --foreground: #f0f4ff;
+  --gold: #c9a96e;
+  --gold-light: #dfc090;
+  --gold-dark: #a8864d;
+  font-family: var(--font-inter), system-ui, sans-serif;
 }
 
 body {
@@ -16,16 +20,84 @@ body {
   .text-balance {
     text-wrap: balance;
   }
+  .font-display {
+    font-family: var(--font-playfair), Georgia, serif;
+  }
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - premium feel */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #1a1a2e;
+  background: #0a0e1a;
 }
 ::-webkit-scrollbar-thumb {
-  background: #4ade80;
+  background: #c9a96e40;
   border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c9a96e80;
+}
+
+/* Subtle noise texture overlay */
+.noise-bg {
+  position: relative;
+}
+.noise-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Gold gradient text */
+.text-gold-gradient {
+  background: linear-gradient(135deg, #c9a96e 0%, #dfc090 50%, #c9a96e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Subtle glow effect */
+.glow-gold {
+  box-shadow: 0 0 40px rgba(201, 169, 110, 0.08), 0 0 80px rgba(201, 169, 110, 0.04);
+}
+
+/* Animated gradient border */
+@keyframes borderGlow {
+  0%, 100% { border-color: rgba(201, 169, 110, 0.2); }
+  50% { border-color: rgba(201, 169, 110, 0.4); }
+}
+
+.border-glow {
+  animation: borderGlow 3s ease-in-out infinite;
+}
+
+/* Smooth fade in */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+}
+
+.animate-fade-in-up-delay-1 {
+  animation: fadeInUp 0.8s ease-out 0.1s forwards;
+  opacity: 0;
+}
+
+.animate-fade-in-up-delay-2 {
+  animation: fadeInUp 0.8s ease-out 0.2s forwards;
+  opacity: 0;
+}
+
+.animate-fade-in-up-delay-3 {
+  animation: fadeInUp 0.8s ease-out 0.3s forwards;
+  opacity: 0;
 }
