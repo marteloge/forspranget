@@ -30,6 +30,7 @@ interface BoligInput {
   previousFinnText?: string;
   feedback?: string;
   roomDetails?: RoomDetails;
+  mapContext?: string[];
 }
 
 // ── SYSTEM PROMPTS ──────────────────────────────────────────────────────────
@@ -168,6 +169,14 @@ function buildDetails(input: BoligInput): string {
     if (romLines.length) {
       lines.push("Detaljert rominformasjon:\n" + romLines.map((l) => `  - ${l}`).join("\n"));
     }
+  }
+
+  // Kartdata (bekreftet nærhet)
+  if (input.mapContext && input.mapContext.length > 0) {
+    lines.push(
+      "Bekreftet nærhet (kartdata fra megler):\n" +
+        input.mapContext.map((l) => `  - ${l}`).join("\n")
+    );
   }
 
   lines.push(
