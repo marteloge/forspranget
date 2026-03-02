@@ -24,6 +24,12 @@ export default function ProspekteringPage() {
         </div>
         <nav className="flex items-center gap-5">
           <Link
+            href="/boligtekst"
+            className="text-xs text-gray-500 hover:text-[#c9a96e] transition-colors tracking-wide uppercase"
+          >
+            Boligtekst
+          </Link>
+          <Link
             href="/"
             className="text-xs text-gray-500 hover:text-[#c9a96e] transition-colors tracking-wide uppercase"
           >
