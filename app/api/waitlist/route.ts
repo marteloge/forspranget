@@ -3,7 +3,7 @@ import { neon } from "@neondatabase/serverless";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, name } = await request.json();
+    const { email, name, rolle, by } = await request.json();
 
     if (!email || !name) {
       return NextResponse.json(
@@ -46,10 +46,12 @@ export async function POST(request: NextRequest) {
 
     // Insert new entry
     await sql`
-      INSERT INTO waitlist (email, name, source, created_at)
+      INSERT INTO waitlist (email, name, rolle, by, source, created_at)
       VALUES (
         ${email.toLowerCase()},
         ${name.trim()},
+        ${rolle?.trim() || null},
+        ${by?.trim() || null},
         'forspranget.no',
         NOW()
       )
