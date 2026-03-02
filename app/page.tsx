@@ -130,6 +130,12 @@ export default function Home() {
             >
               Boligtekst
             </Link>
+            <Link
+              href="/blogg"
+              className="text-sm text-gray-500 hover:text-[#c9a96e] transition-colors tracking-wide"
+            >
+              Blogg
+            </Link>
             <a
               href="#venteliste"
               className="text-sm bg-gradient-to-r from-[#c9a96e] to-[#dfc090] text-[#0a0e1a] font-semibold px-5 py-2.5 rounded-lg hover:opacity-90 transition-opacity tracking-wide"
