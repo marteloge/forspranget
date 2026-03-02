@@ -47,6 +47,28 @@ const CATEGORY_LABELS: Record<string, string> = {
   livsstil: "Livsstil",
 };
 
+// ── ROOM COUNTER ─────────────────────────────────────────────────────────────
+const RoomCounter = ({
+  label, value, onChange, min = 0, max = 9,
+}: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number }) => (
+  <div className="flex-1 flex flex-col items-center">
+    <span className="text-[9px] text-gray-600 uppercase tracking-[0.15em] mb-1.5">{label}</span>
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => onChange(Math.max(min, value - 1))}
+        disabled={value <= min}
+        className="w-6 h-6 rounded-md bg-white/[0.04] border border-white/[0.08] text-gray-400 hover:text-white hover:border-white/[0.15] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-base leading-none"
+      >−</button>
+      <span className="w-7 text-center text-sm text-white tabular-nums">{value}</span>
+      <button
+        onClick={() => onChange(Math.min(max, value + 1))}
+        disabled={value >= max}
+        className="w-6 h-6 rounded-md bg-white/[0.04] border border-white/[0.08] text-gray-400 hover:text-white hover:border-white/[0.15] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center text-base leading-none"
+      >+</button>
+    </div>
+  </div>
+);
+
 // ── COMPONENT ────────────────────────────────────────────────────────────────
 export default function BoligtekstView() {
   // Form state
@@ -59,6 +81,20 @@ export default function BoligtekstView() {
   const [highlights, setHighlights] = useState("");
   const [notes, setNotes] = useState("");
   const [tone, setTone] = useState<Tone>("professional");
+
+  // Room details state
+  const [showRoomDetails, setShowRoomDetails] = useState(false);
+  const [rdSoverom, setRdSoverom] = useState(2);
+  const [rdBad, setRdBad] = useState(1);
+  const [rdWc, setRdWc] = useState(0);
+  const [rdStueType, setRdStueType] = useState<"" | "gjennomgående" | "hjørne">("");
+  const [rdKjokkenType, setRdKjokkenType] = useState<"" | "åpent" | "eget">("");
+  const [rdKjokkenRenovert, setRdKjokkenRenovert] = useState(false);
+  const [rdBadRenovert, setRdBadRenovert] = useState(false);
+  const [rdVaskerom, setRdVaskerom] = useState(false);
+  const [rdHjemmekontor, setRdHjemmekontor] = useState(false);
+  const [rdKjellerstue, setRdKjellerstue] = useState(false);
+  const [rdGarderoberom, setRdGarderoberom] = useState(false);
 
   // Audience + Tiles state
   const [selectedAudiences, setSelectedAudiences] = useState<Set<string>>(new Set());
@@ -155,6 +191,9 @@ export default function BoligtekstView() {
         .map((id) => tileById.get(id)?.label)
         .filter(Boolean);
 
+      const rdHasExtras = rdVaskerom || rdHjemmekontor || rdKjellerstue || rdGarderoberom;
+      const rdHasType = rdStueType || rdKjokkenType || rdKjokkenRenovert || rdBadRenovert;
+
       return {
         address,
         boligtype,
@@ -169,9 +208,23 @@ export default function BoligtekstView() {
         selectedTiles: tileLabels.length > 0 ? tileLabels : undefined,
         previousFinnText: previousVersion?.texts.finn || undefined,
         feedback: feedbackText || undefined,
+        roomDetails: (rdSoverom !== 2 || rdBad !== 1 || rdWc > 0 || rdHasType || rdHasExtras) ? {
+          soverom: rdSoverom,
+          bad: rdBad,
+          wc: rdWc > 0 ? rdWc : undefined,
+          stueType: rdStueType || undefined,
+          kjokkenType: rdKjokkenType || undefined,
+          kjokkenRenovert: rdKjokkenRenovert || undefined,
+          badRenovert: rdBadRenovert || undefined,
+          hasVaskerom: rdVaskerom || undefined,
+          hasHjemmekontor: rdHjemmekontor || undefined,
+          hasKjellerstue: rdKjellerstue || undefined,
+          hasGarderoberom: rdGarderoberom || undefined,
+        } : undefined,
       };
     },
-    [address, boligtype, sqm, rooms, floor, buildYear, highlights, notes, tone, versions, selectedAudiences, selectedTiles, tileById]
+    [address, boligtype, sqm, rooms, floor, buildYear, highlights, notes, tone, versions, selectedAudiences, selectedTiles, tileById,
+     rdSoverom, rdBad, rdWc, rdStueType, rdKjokkenType, rdKjokkenRenovert, rdBadRenovert, rdVaskerom, rdHjemmekontor, rdKjellerstue, rdGarderoberom]
   );
 
   // ── Generate ──
@@ -395,6 +448,94 @@ export default function BoligtekstView() {
                 className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#c9a96e]/30 transition-colors"
               />
             </div>
+          </div>
+
+          {/* ── ROM-DETALJER (collapsible) ── */}
+          <div className="mb-4">
+            <button
+              onClick={() => setShowRoomDetails(!showRoomDetails)}
+              className="flex items-center justify-between w-full text-left group mb-1"
+            >
+              <span className="text-[11px] text-gray-500 group-hover:text-gray-400 transition-colors flex items-center gap-1.5">
+                Romdetaljer
+                {(rdStueType || rdKjokkenType || rdKjokkenRenovert || rdBadRenovert || rdVaskerom || rdHjemmekontor || rdKjellerstue || rdGarderoberom) && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#c9a96e]/60 inline-block" />
+                )}
+                <span className="text-gray-700 text-[10px] ml-0.5">(valgfritt)</span>
+              </span>
+              <svg
+                className={"w-3.5 h-3.5 text-gray-600 transition-transform duration-200 " + (showRoomDetails ? "rotate-180" : "")}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+
+            {showRoomDetails && (
+              <div className="mt-2 bg-white/[0.01] border border-white/[0.05] rounded-lg p-3 space-y-3">
+                {/* Room counters */}
+                <div className="flex gap-2 pb-2 border-b border-white/[0.05]">
+                  <RoomCounter label="Soverom" value={rdSoverom} onChange={setRdSoverom} min={0} max={8} />
+                  <RoomCounter label="Bad" value={rdBad} onChange={setRdBad} min={0} max={5} />
+                  <RoomCounter label="WC" value={rdWc} onChange={setRdWc} min={0} max={4} />
+                </div>
+
+                {/* Stue type */}
+                <div>
+                  <label className="text-[9px] text-gray-600 uppercase tracking-[0.15em] block mb-1.5">Stue</label>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {(["gjennomgående", "hjørne"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setRdStueType(rdStueType === t ? "" : t)}
+                        className={"px-2 py-1 rounded-md text-[11px] transition-all duration-150 " + (rdStueType === t ? "bg-[#c9a96e]/20 border border-[#c9a96e]/40 text-[#c9a96e]" : "bg-white/[0.03] border border-white/[0.06] text-gray-500 hover:text-gray-300")}
+                      >{t}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Kjøkken + Bad */}
+                <div>
+                  <label className="text-[9px] text-gray-600 uppercase tracking-[0.15em] block mb-1.5">Kjøkken & Bad</label>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {(["åpent", "eget"] as const).map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setRdKjokkenType(rdKjokkenType === t ? "" : t)}
+                        className={"px-2 py-1 rounded-md text-[11px] transition-all duration-150 " + (rdKjokkenType === t ? "bg-[#c9a96e]/20 border border-[#c9a96e]/40 text-[#c9a96e]" : "bg-white/[0.03] border border-white/[0.06] text-gray-500 hover:text-gray-300")}
+                      >kjøkken {t}</button>
+                    ))}
+                    <button
+                      onClick={() => setRdKjokkenRenovert(!rdKjokkenRenovert)}
+                      className={"px-2 py-1 rounded-md text-[11px] transition-all duration-150 " + (rdKjokkenRenovert ? "bg-[#c9a96e]/20 border border-[#c9a96e]/40 text-[#c9a96e]" : "bg-white/[0.03] border border-white/[0.06] text-gray-500 hover:text-gray-300")}
+                    >🍳 kjøkken renovert</button>
+                    <button
+                      onClick={() => setRdBadRenovert(!rdBadRenovert)}
+                      className={"px-2 py-1 rounded-md text-[11px] transition-all duration-150 " + (rdBadRenovert ? "bg-[#c9a96e]/20 border border-[#c9a96e]/40 text-[#c9a96e]" : "bg-white/[0.03] border border-white/[0.06] text-gray-500 hover:text-gray-300")}
+                    >🚿 bad renovert</button>
+                  </div>
+                </div>
+
+                {/* Ekstrarom */}
+                <div>
+                  <label className="text-[9px] text-gray-600 uppercase tracking-[0.15em] block mb-1.5">Ekstrarom</label>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {([
+                      { active: rdVaskerom, set: setRdVaskerom, label: "👕 Vaskerom" },
+                      { active: rdHjemmekontor, set: setRdHjemmekontor, label: "💻 Hjemmekontor" },
+                      { active: rdKjellerstue, set: setRdKjellerstue, label: "🎮 Kjellerstue" },
+                      { active: rdGarderoberom, set: setRdGarderoberom, label: "👗 Garderoberom" },
+                    ] as const).map(({ active, set, label }) => (
+                      <button
+                        key={label}
+                        onClick={() => (set as (v: boolean) => void)(!active)}
+                        className={"px-2 py-1 rounded-md text-[11px] transition-all duration-150 " + (active ? "bg-[#c9a96e]/20 border border-[#c9a96e]/40 text-[#c9a96e]" : "bg-white/[0.03] border border-white/[0.06] text-gray-500 hover:text-gray-300")}
+                      >{label}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Notes */}
