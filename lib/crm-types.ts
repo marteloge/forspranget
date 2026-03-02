@@ -1,4 +1,56 @@
 export type ContactStatus = "cold" | "warm" | "hot" | "active" | "won" | "lost";
+export type PropertyType = "apartment" | "house" | "cabin" | "commercial" | "land" | "other";
+export type ContactPropertyRelationship = "owner" | "past_owner" | "interested" | "viewed" | "bidder" | "neighbor" | "heir";
+
+export interface Property {
+  id: string;
+  agent_email: string;
+  address: string;
+  postal_code: string;
+  city: string;
+  property_type: PropertyType;
+  size_sqm: number | null;
+  estimated_value: number | null;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+  event_count?: number;
+  contact_count?: number;
+  last_event_at?: string | null;
+  contacts?: ContactPropertyLink[];
+}
+
+export interface ContactPropertyLink {
+  id: string;
+  contact_id: string;
+  property_id: string;
+  relationship: ContactPropertyRelationship;
+  notes: string;
+  created_at: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  status?: ContactStatus;
+}
+
+export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
+  apartment: "Leilighet",
+  house: "Enebolig/Rekkehus",
+  cabin: "Hytte/Fritidseiendom",
+  commercial: "Næringseiendom",
+  land: "Tomt",
+  other: "Annet",
+};
+
+export const RELATIONSHIP_LABELS: Record<ContactPropertyRelationship, string> = {
+  owner: "Eier",
+  past_owner: "Tidligere eier",
+  interested: "Interessent",
+  viewed: "Var på visning",
+  bidder: "Ga bud",
+  neighbor: "Nabo",
+  heir: "Arving",
+};
 export type ContactType = "seller" | "buyer" | "investor" | "heir" | "renter" | "unknown";
 
 export interface Contact {
