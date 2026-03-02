@@ -52,41 +52,89 @@ const TONE_PROMPTS: Record<string, string> = {
 // ── EXAMPLE OUTPUT (used when no API key) ────────────────────────────────────
 function getExampleOutput(input: BoligInput) {
   const addr = input.address || "Thorvald Meyers gate 15";
+  const shortAddr = addr.split(",")[0] || addr;
   const sqm = input.sqm || 75;
   const rooms = input.rooms || 3;
   const type = input.boligtype || "Leilighet";
+  const typeLower = type.toLowerCase();
+  const floorText = input.floor ? " i " + input.floor : "";
+  const buildYearText = input.buildYear ? " | Byggeår: " + input.buildYear : "";
+  const buildYearPara = input.buildYear
+    ? "Bygården er fra " + input.buildYear + " og er godt vedlikeholdt med oppgradert fasade og felles trappeoppgang. "
+    : "";
+  const firstHighlight = input.highlights?.split(",")[0]?.trim().toLowerCase() || "";
+  const highlightIntro = firstHighlight
+    ? "Det første som møter deg er " + firstHighlight + ". "
+    : "";
+  const hasPeis = input.highlights?.toLowerCase().includes("peis") || false;
+  const peisText = hasPeis ? " — og peisen skaper en varm atmosfære på kjølige kvelder" : "";
+  const hasKjokken = input.highlights?.toLowerCase().includes("kjøkken") || false;
+  const kjokkenText = hasKjokken ? " nyoppusset og" : "";
+  const hasBalkong = input.highlights?.toLowerCase().includes("balkong") || false;
+  const balkongText = hasBalkong
+    ? "den sydvendte balkongen — perfekt for morgenkaffe og lange sommeraftener"
+    : "boligens øvrige rom";
+  const firstNote = input.notes?.split(".")[0]?.trim() || "";
+  const beliggText = firstNote ? ": " + firstNote : "en er sentral med kort vei til alt du trenger";
+  const hasBarn = input.notes?.toLowerCase().includes("barn") || false;
+  const barnText = hasBarn
+    ? "Området er populært blant barnefamilier med nærhet til skoler, barnehager og lekeplasser. "
+    : "";
+  const toneEnd = input.tone === "warm"
+    ? "et hjem med varme og karakter"
+    : input.tone === "engaging"
+      ? "urban livsstil og moderne komfort"
+      : "kvalitet, beliggenhet og gjennomtenkte løsninger";
+  const igHook = input.tone === "engaging"
+    ? "Drømmer du om å bo midt i byen med alt på dørstokken? 🏙️"
+    : input.tone === "warm"
+      ? "Noen boliger har bare den der følelsen ☀️"
+      : "Ny mulighet i " + shortAddr + " 🏠";
+  const igHighlights = input.highlights
+    ? input.highlights.split(",").slice(0, 2).join(" og ").toLowerCase().trim()
+    : "god planløsning og flott beliggenhet";
+  const igLocation = firstNote || "Sentralt beliggende med alt innen gangavstand";
+  const igCta = input.tone === "warm"
+    ? "Dette er et hjem du kommer til å elske å komme hjem til 💛"
+    : "Ta kontakt for visning — denne varer ikke lenge! 👇";
+  const igCity = addr.split(",").pop()?.trim().toLowerCase().replace(/\s+/g, "") || "oslo";
+  const smsHighlight = firstHighlight ? ", " + firstHighlight : "";
 
-  return {
-    finn: `${addr} — ${type} med sjel og moderne komfort
+  const finn = [
+    shortAddr + " — " + type + " med sjel og moderne komfort",
+    "",
+    "Velkommen til en gjennomtenkt " + sqm + " kvm stor " + typeLower + floorText + " som forener klassisk bygårdsstil med moderne oppgraderinger.",
+    "",
+    highlightIntro + "Leiligheten byr på " + rooms + " rom med gjennomgående god takhøyde og store vinduer som slipper inn rikelig med naturlig lys. Stuen er romslig og åpen, med plass til både sofagruppe og spisebord" + peisText + ".",
+    "",
+    "Kjøkkenet er" + kjokkenText + " praktisk innredet med god benkeplass og moderne hvitevarer. Fra kjøkkenet har du direkte tilgang til " + balkongText + ".",
+    "",
+    buildYearPara + "Beliggenhet" + beliggText + ".",
+    "",
+    barnText + "Her har du gangavstand til kollektivtransport, matbutikker, kafeer og grøntområder.",
+    "",
+    "En bolig for deg som verdsetter " + toneEnd + ".",
+    "",
+    "Velkommen på visning!",
+    "",
+    "Primærrom: " + sqm + " kvm | " + rooms + " rom" + buildYearText,
+  ].join("\n");
 
-Velkommen til en gjennomtenkt ${sqm} kvm stor ${type.toLowerCase()} ${input.floor ? `i ${input.floor}` : ""} som forener klassisk bygårdsstil med moderne oppgraderinger.
+  const instagram = [
+    igHook,
+    "",
+    sqm + " kvm " + typeLower + floorText + " med " + igHighlights + " ✨",
+    "",
+    igLocation + " 📍",
+    "",
+    igCta,
+    "",
+    "#eiendom #bolig #tilsalgs #" + igCity + " #" + typeLower + " #nybolig #boligdrøm #megler",
+  ].join("\n");
 
-${input.highlights ? `Det første som møter deg er ${input.highlights.split(",")[0]?.trim().toLowerCase() || "de lyse rommene"}. ` : ""}Leiligheten byr på ${rooms} rom med gjennomgående god takhøyde og store vinduer som slipper inn rikelig med naturlig lys. Stuen er romslig og åpen, med plass til både sofagruppe og spisebord${input.highlights?.toLowerCase().includes("peis") ? " — og peisen skaper en varm atmosfære på kjølige kvelder" : ""}.
+  const sms = "Ny " + typeLower + " i " + shortAddr + ": " + sqm + "kvm, " + rooms + " rom" + smsHighlight + ". Visning snart — interessert?";
 
-Kjøkkenet er${input.highlights?.toLowerCase().includes("kjøkken") ? " nyoppusset og" : ""} praktisk innredet med god benkeplass og moderne hvitevarer. Fra kjøkkenet har du direkte tilgang til ${input.highlights?.toLowerCase().includes("balkong") ? "den sydvendte balkongen — perfekt for morgenkaffe og lange sommeraftener" : "boligens øvrige rom"}.
-
-${input.buildYear ? `Bygården er fra ${input.buildYear} og er godt vedlikeholdt med oppgradert fasade og felles trappeoppgang. ` : ""}Beliggenhet${input.notes ? `: ${input.notes.split(".")[0]?.trim()}` : "en er sentral med kort vei til alt du trenger"}.
-
-${input.notes?.toLowerCase().includes("barn") ? "Området er populært blant barnefamilier med nærhet til skoler, barnehager og lekeplasser. " : ""}Her har du gangavstand til kollektivtransport, matbutikker, kafeer og grøntområder.
-
-En bolig for deg som verdsetter ${input.tone === "warm" ? "et hjem med varme og karakter" : input.tone === "engaging" ? "urban livsstil og moderne komfort" : "kvalitet, beliggenhet og gjennomtenkte løsninger"}.
-
-Velkommen på visning!
-
-Primærrom: ${sqm} kvm | ${rooms} rom${input.buildYear ? ` | Byggeår: ${input.buildYear}` : ""}`,
-
-    instagram: `${input.tone === "engaging" ? "Drømmer du om å bo midt i byen med alt på dørstokken? 🏙️" : input.tone === "warm" ? "Noen boliger har bare den der følelsen ☀️" : "Ny mulighet i ${addr.split(",")[0]} 🏠"}
-
-${sqm} kvm ${type.toLowerCase()} ${input.floor ? `i ${input.floor}` : ""} med ${input.highlights?.split(",").slice(0, 2).join(" og ").toLowerCase() || "god planløsning og flott beliggenhet"} ✨
-
-${input.notes?.split(".")[0]?.trim() || "Sentralt beliggende med alt innen gangavstand"} 📍
-
-${input.tone === "warm" ? "Dette er et hjem du kommer til å elske å komme hjem til 💛" : "Ta kontakt for visning — denne varer ikke lenge! 👇"}
-
-#eiendom #bolig #tilsalgs #${addr.split(",").pop()?.trim().toLowerCase().replace(/\s+/g, "") || "oslo"} #${type.toLowerCase()} #nybolig #boligdrøm #megler`,
-
-    sms: `Ny ${type.toLowerCase()} i ${addr.split(",")[0]}: ${sqm}kvm, ${rooms} rom${input.highlights ? `, ${input.highlights.split(",")[0]?.trim().toLowerCase()}` : ""}. Visning snart — interessert?`,
-  };
+  return { finn, instagram, sms };
 }
 
 // ── HANDLER ──────────────────────────────────────────────────────────────────
