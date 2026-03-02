@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
         const repr = a.representasjonspunkt as { lat?: number; lon?: number } | undefined;
         return {
           tekst: `${a.adressetekst}, ${a.postnummer} ${a.poststed}`,
+          adressetekst: a.adressetekst as string | undefined,
           gatenavn: a.adressenavn as string | undefined,
+          postnummer: a.postnummer as string | undefined,
+          poststed: a.poststed as string | undefined,
           lat: repr?.lat,
           lon: repr?.lon,
           kommunenavn: a.kommunenavn,
