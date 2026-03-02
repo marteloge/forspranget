@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { AUDIENCES } from "./data/boligtekst-tiles";
 
 const FEATURES = [
   {
@@ -250,6 +251,54 @@ export default function Home() {
         <div className="h-px bg-gradient-to-r from-transparent via-[#c9a96e]/20 to-transparent" />
       </div>
 
+      {/* ── SNARVEIER ── */}
+      <section className="relative z-10 max-w-5xl mx-auto px-6 py-14">
+        <p className="text-[10px] text-[#c9a96e]/50 tracking-[0.3em] uppercase mb-5 text-center">Tilgjengelig nå</p>
+        <div className="grid md:grid-cols-2 gap-4">
+          <Link href="/boligtekst" className="group relative bg-white/[0.02] border border-white/[0.06] rounded-2xl p-7 hover:border-[#c9a96e]/30 hover:bg-[#c9a96e]/[0.03] transition-all duration-300 flex items-center gap-5">
+            <div className="w-14 h-14 rounded-xl bg-[#c9a96e]/[0.08] border border-[#c9a96e]/15 flex items-center justify-center text-[#c9a96e] flex-shrink-0 group-hover:bg-[#c9a96e]/[0.15] transition-colors">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-white font-semibold tracking-tight">AI Boligtekst</span>
+                <span className="text-[9px] bg-[#c9a96e]/10 text-[#c9a96e] border border-[#c9a96e]/20 px-2 py-0.5 rounded-full uppercase tracking-widest">Live</span>
+              </div>
+              <p className="text-sm text-gray-500 leading-snug">FINN-annonse, Instagram og SMS — på 3 minutter</p>
+            </div>
+            <svg className="w-5 h-5 text-[#c9a96e]/30 group-hover:text-[#c9a96e] transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+          </Link>
+
+          <Link href="/prospektering" className="group relative bg-white/[0.02] border border-white/[0.06] rounded-2xl p-7 hover:border-[#c9a96e]/30 hover:bg-[#c9a96e]/[0.03] transition-all duration-300 flex items-center gap-5">
+            <div className="w-14 h-14 rounded-xl bg-[#c9a96e]/[0.08] border border-[#c9a96e]/15 flex items-center justify-center text-[#c9a96e] flex-shrink-0 group-hover:bg-[#c9a96e]/[0.15] transition-colors">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-white font-semibold tracking-tight">Prospektering</span>
+                <span className="text-[9px] bg-[#c9a96e]/10 text-[#c9a96e] border border-[#c9a96e]/20 px-2 py-0.5 rounded-full uppercase tracking-widest">Live</span>
+              </div>
+              <p className="text-sm text-gray-500 leading-snug">Finn potensielle selgere — før de havner på FINN</p>
+            </div>
+            <svg className="w-5 h-5 text-[#c9a96e]/30 group-hover:text-[#c9a96e] transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+          </Link>
+        </div>
+      </section>
+
+      {/* ── DIVIDER ── */}
+      <div className="max-w-5xl mx-auto px-6">
+        <div className="h-px bg-gradient-to-r from-transparent via-[#c9a96e]/20 to-transparent" />
+      </div>
+
       {/* ── FEATURES ── */}
       <section className="relative z-10 max-w-5xl mx-auto px-6 py-28">
         <div className="text-center mb-20">
@@ -317,6 +366,50 @@ export default function Home() {
             }
             return <div key={f.title}>{inner}</div>;
           })}
+        </div>
+      </section>
+
+      {/* ── DIVIDER ── */}
+      <div className="max-w-5xl mx-auto px-6">
+        <div className="h-px bg-gradient-to-r from-transparent via-[#c9a96e]/20 to-transparent" />
+      </div>
+
+      {/* ── MÅLGRUPPE-TILES ── */}
+      <section className="relative z-10 max-w-5xl mx-auto px-6 py-24">
+        <div className="text-center mb-12">
+          <p className="text-xs text-[#c9a96e]/60 tracking-[0.3em] uppercase mb-4">Intelligent tilpasning</p>
+          <h2 className="font-display text-3xl md:text-4xl tracking-tight mb-5">
+            Skriv for de{" "}
+            <span className="text-gold-gradient italic">rette kjøperne</span>
+          </h2>
+          <p className="text-gray-500 max-w-xl mx-auto text-sm leading-relaxed">
+            Velg målgruppe og AI tilpasser tone, fremhever riktige kvaliteter og treffer nerven.
+            Barnefamilier får trygghet og skolekrets. Investorer får yield og utleiepotensial.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-3 justify-center mb-10">
+          {AUDIENCES.map((a) => (
+            <div
+              key={a.id}
+              className="flex items-center gap-2.5 px-5 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-gray-400 text-sm hover:border-[#c9a96e]/20 hover:text-gray-300 transition-all duration-200"
+            >
+              <span className="text-xl">{a.emoji}</span>
+              <span className="tracking-wide">{a.label}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-center">
+          <Link
+            href="/boligtekst"
+            className="inline-flex items-center gap-2 text-sm text-[#c9a96e] hover:text-[#dfc090] transition-colors group"
+          >
+            Prøv målgruppe-tilpasning
+            <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
+          </Link>
         </div>
       </section>
 
