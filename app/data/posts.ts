@@ -37,4 +37,31 @@ export const posts: BlogPost[] = [
     tag: "Prospektering",
     readTime: "7 min",
   },
+  {
+    slug: "leads-etter-visning",
+    title: "87 % av leads forsvinner etter visning — slik stopper du det",
+    description:
+      "I Bergen selges boliger på 23 dager. I Fredrikstad tar det 136. Forskjellen er ikke bare markedet — det er hva meglerne gjør etter visningen. Her er systemet som skiller toppmeglerne fra resten.",
+    date: "Mars 2026",
+    tag: "Leads & CRM",
+    readTime: "6 min",
+  },
+  {
+    slug: "instagram-for-eiendomsmeglere",
+    title: "Instagram for norske eiendomsmeglere: Den komplette guiden (2026)",
+    description:
+      "80 % av boligkjøpere bruker sosiale medier i boligjakten. Autentisk innhold slår polerte annonser. Her er hva norske toppmeglere gjør på Instagram — og hvordan du bygger din profil uten å bruke timer på innhold.",
+    date: "Mars 2026",
+    tag: "Sosiale medier",
+    readTime: "7 min",
+  },
+  {
+    slug: "energimerking-2026",
+    title: "Energimerking 2026: Hva norske kjøpere faktisk ser etter",
+    description:
+      "Ny A–G energimerkeordning er innført fra januar 2026. 4 av 10 kjøpere sier energimerket påvirker kjøpsbeslutningen. Her er hva meglere bør fremheve i boligannonsen — og markedsforskjellene du bør kjenne til.",
+    date: "Mars 2026",
+    tag: "Boligmarkedet 2026",
+    readTime: "5 min",
+  },
 ];
