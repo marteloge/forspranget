@@ -28,6 +28,40 @@ interface MarkerEntry {
   dotEl: HTMLDivElement | null;
 }
 
+// ── MAP STYLES ──────────────────────────────────────────────────────────────
+interface TileStyle {
+  name: string;
+  url: string;
+  attribution: string;
+  subdomains?: string;
+}
+
+const TILE_STYLES: TileStyle[] = [
+  {
+    name: "Mørk",
+    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: "abcd",
+  },
+  {
+    name: "Voyager",
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: "abcd",
+  },
+  {
+    name: "Lys",
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    subdomains: "abcd",
+  },
+  {
+    name: "Kartverket",
+    url: "https://opencache.statkart.no/gatekeeper/gk/gk.open_gmaps?layers=topo4&zoom={z}&x={x}&y={y}",
+    attribution: '&copy; <a href="https://kartverket.no">Kartverket</a>',
+  },
+];
+
 // ── CONSTANTS ────────────────────────────────────────────────────────────────
 const CURRENT_YEAR = 2026;
 
@@ -82,6 +116,7 @@ function ageTagStyle(years: number): string {
 export default function ProspekteringView() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const markerEntriesRef = useRef<MarkerEntry[]>([]);
 
   const [query, setQuery] = useState("Thorvald Meyers gate");
@@ -91,6 +126,7 @@ export default function ProspekteringView() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [sortMode, setSortMode] = useState<"age" | "street">("age");
   const [searched, setSearched] = useState(false);
+  const [tileStyleIdx, setTileStyleIdx] = useState(0);
 
   const selectedProperty = properties.find((p) => p.id === selectedId) ?? null;
 
@@ -105,30 +141,36 @@ export default function ProspekteringView() {
     });
 
     L.control.zoom({ position: "topright" }).addTo(map);
-
-    const darkTiles = L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-        subdomains: "abcd",
-        maxZoom: 20,
-      }
-    );
-
-    darkTiles.on("tileerror", () => {
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap",
-      }).addTo(map);
-    });
-
-    darkTiles.addTo(map);
     mapInstanceRef.current = map;
 
     return () => {
       map.remove();
       mapInstanceRef.current = null;
+      tileLayerRef.current = null;
     };
   }, []);
+
+  // ── Swap tile layer when style changes ──
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Remove previous tile layer
+    if (tileLayerRef.current) {
+      map.removeLayer(tileLayerRef.current);
+    }
+
+    const style = TILE_STYLES[tileStyleIdx];
+    const opts: L.TileLayerOptions = {
+      attribution: style.attribution,
+      maxZoom: 20,
+    };
+    if (style.subdomains) opts.subdomains = style.subdomains;
+
+    const layer = L.tileLayer(style.url, opts);
+    layer.addTo(map);
+    tileLayerRef.current = layer;
+  }, [tileStyleIdx]);
 
   // ── Create markers when properties change (NOT on filter change) ──
   useEffect(() => {
@@ -403,7 +445,7 @@ export default function ProspekteringView() {
       <div className="flex-1 relative">
         <div ref={mapRef} className="w-full h-full" />
 
-        {/* Legend */}
+        {/* Legend + Map Style Picker */}
         <div className="absolute top-4 left-4 bg-[#0d1220]/90 backdrop-blur-md border border-white/[0.06] rounded-xl p-4 z-[1000]">
           <div className="text-[10px] text-[#c9a96e]/60 uppercase tracking-[0.2em] mb-3">
             Salgssannsynlighet
@@ -420,6 +462,28 @@ export default function ProspekteringView() {
             <div className="flex items-center gap-2.5 text-xs text-gray-400">
               <span className="w-3 h-3 rounded-full bg-blue-400" />
               <span>Under 10 år — Lav</span>
+            </div>
+          </div>
+
+          {/* Map style switcher */}
+          <div className="mt-4 pt-3 border-t border-white/[0.06]">
+            <div className="text-[10px] text-[#c9a96e]/60 uppercase tracking-[0.2em] mb-2">
+              Kartstil
+            </div>
+            <div className="flex gap-1.5">
+              {TILE_STYLES.map((style, idx) => (
+                <button
+                  key={style.name}
+                  onClick={() => setTileStyleIdx(idx)}
+                  className={`px-2.5 py-1 text-[11px] rounded-md transition-all duration-200 ${
+                    tileStyleIdx === idx
+                      ? "bg-[#c9a96e]/20 text-[#c9a96e] border border-[#c9a96e]/30"
+                      : "bg-white/[0.03] text-gray-500 border border-white/[0.06] hover:text-gray-300 hover:border-white/[0.12]"
+                  }`}
+                >
+                  {style.name}
+                </button>
+              ))}
             </div>
           </div>
         </div>
