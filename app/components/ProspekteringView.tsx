@@ -250,20 +250,10 @@ export default function ProspekteringView() {
     }, 300);
   };
 
-  const selectSuggestion = useCallback((s: AddressSuggestion) => {
-    const searchTerm = s.gatenavn || s.tekst;
-    setQuery(searchTerm);
-    setSuggestions([]);
-    setShowSuggestions(false);
-    setValidAddressSelected(true);
-    doSearchWithTerm(searchTerm);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doSearchWithTerm]);
-
   // Cleanup on unmount
   useEffect(() => () => { if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current); }, []);
 
-  // ── Search (shared logic) ──
+  // ── Search (shared logic) — må defineres FØR selectSuggestion ──
   const doSearchWithTerm = useCallback(async (term: string) => {
     if (!term.trim()) return;
     setLoading(true);
@@ -333,6 +323,15 @@ export default function ProspekteringView() {
   }, []);
 
   const doSearch = useCallback(() => doSearchWithTerm(query), [query, doSearchWithTerm]);
+
+  const selectSuggestion = useCallback((s: AddressSuggestion) => {
+    const searchTerm = s.gatenavn || s.tekst;
+    setQuery(searchTerm);
+    setSuggestions([]);
+    setShowSuggestions(false);
+    setValidAddressSelected(true);
+    doSearchWithTerm(searchTerm);
+  }, [doSearchWithTerm]);
 
   // Auto-search on mount
   useEffect(() => {
