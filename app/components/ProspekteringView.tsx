@@ -404,8 +404,9 @@ export default function ProspekteringView() {
                 <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${ageDotClass(p.yearsSold)}`} />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-white truncate">{p.address}</div>
-                  <div className="text-[11px] text-gray-600 mt-0.5">
-                    {p.poststed} &middot; {p.ownerName}
+                  <div className="text-[11px] text-gray-600 mt-0.5 flex items-center gap-1">
+                    {p.poststed} &middot; <span className="blur-[5px] select-none">{p.ownerName}</span>
+                    <span className="text-[9px] bg-[#c9a96e]/15 text-[#c9a96e] px-1.5 py-px rounded font-semibold tracking-wide no-blur">PRO</span>
                   </div>
                   <span
                     className={`inline-block mt-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full border ${ageTagStyle(p.yearsSold)}`}
@@ -506,22 +507,45 @@ export default function ProspekteringView() {
             </div>
             <div className="px-5 py-4">
               {[
-                ["Matrikkelnummer", selectedProperty.matrikkelnr],
-                ["Boligtype", selectedProperty.boligtype],
-                ["Sist tinglyst salg", String(selectedProperty.soldYear)],
-                ["År siden salg", `${selectedProperty.yearsSold} år`],
-                ["Registrert eier", selectedProperty.ownerName],
-                ["Alder (estimert)", `ca. ${selectedProperty.ownerAge} år`],
-              ].map(([label, value]) => (
+                ["Matrikkelnummer", selectedProperty.matrikkelnr, false],
+                ["Boligtype", selectedProperty.boligtype, false],
+                ["Sist tinglyst salg", String(selectedProperty.soldYear), false],
+                ["År siden salg", `${selectedProperty.yearsSold} år`, false],
+                ["Registrert eier", selectedProperty.ownerName, true],
+                ["Alder (estimert)", `ca. ${selectedProperty.ownerAge} år`, true],
+              ].map(([label, value, isPro]) => (
                 <div
-                  key={label}
-                  className="flex justify-between py-2.5 border-b border-white/[0.04] last:border-b-0"
+                  key={label as string}
+                  className="flex justify-between items-center py-2.5 border-b border-white/[0.04] last:border-b-0"
                 >
-                  <span className="text-[11px] text-gray-500">{label}</span>
-                  <span className="text-[11px] font-medium text-white text-right">{value}</span>
+                  <span className="text-[11px] text-gray-500 flex items-center gap-1.5">
+                    {label as string}
+                    {isPro && (
+                      <span className="text-[8px] bg-[#c9a96e]/15 text-[#c9a96e] px-1.5 py-px rounded font-semibold tracking-wider">PRO</span>
+                    )}
+                  </span>
+                  {isPro ? (
+                    <span className="text-[11px] font-medium text-white text-right blur-[5px] select-none">{value as string}</span>
+                  ) : (
+                    <span className="text-[11px] font-medium text-white text-right">{value as string}</span>
+                  )}
                 </div>
               ))}
-              <button className="w-full mt-4 py-2.5 bg-gradient-to-r from-[#c9a96e] to-[#dfc090] text-[#0a0e1a] font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity">
+
+              {/* Pro upsell */}
+              <div className="mt-4 mb-3 bg-[#c9a96e]/[0.06] border border-[#c9a96e]/15 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <svg className="w-3.5 h-3.5 text-[#c9a96e]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                  </svg>
+                  <span className="text-[11px] font-semibold text-[#c9a96e]">Oppgrader til Pro</span>
+                </div>
+                <p className="text-[10px] text-gray-500 leading-relaxed">
+                  Se eierinfo, kontaktdetaljer og estimert alder. Forbered kontakt direkte.
+                </p>
+              </div>
+
+              <button className="w-full py-2.5 bg-gradient-to-r from-[#c9a96e] to-[#dfc090] text-[#0a0e1a] font-semibold rounded-lg text-sm hover:opacity-90 transition-opacity">
                 Forbered kontakt
               </button>
             </div>
