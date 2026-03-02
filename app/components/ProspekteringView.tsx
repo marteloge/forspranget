@@ -126,7 +126,7 @@ export default function ProspekteringView() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [sortMode, setSortMode] = useState<"age" | "street">("age");
   const [searched, setSearched] = useState(false);
-  const [tileStyleIdx, setTileStyleIdx] = useState(0);
+  const [tileStyleIdx, setTileStyleIdx] = useState(2);
 
   const selectedProperty = properties.find((p) => p.id === selectedId) ?? null;
 
