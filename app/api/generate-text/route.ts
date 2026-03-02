@@ -1,6 +1,20 @@
 import { NextRequest } from "next/server";
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
+interface RoomDetails {
+  soverom?: number;
+  bad?: number;
+  wc?: number;
+  stueType?: string;
+  kjokkenType?: string;
+  kjokkenRenovert?: boolean;
+  badRenovert?: boolean;
+  hasVaskerom?: boolean;
+  hasHjemmekontor?: boolean;
+  hasKjellerstue?: boolean;
+  hasGarderoberom?: boolean;
+}
+
 interface BoligInput {
   address: string;
   boligtype: string;
@@ -15,6 +29,7 @@ interface BoligInput {
   selectedTiles?: string[];
   previousFinnText?: string;
   feedback?: string;
+  roomDetails?: RoomDetails;
 }
 
 // ── SYSTEM PROMPTS ──────────────────────────────────────────────────────────
@@ -122,13 +137,40 @@ function extractJsonStringValue(text: string, startIdx: number): string {
 
 /** Build the details string from input fields. */
 function buildDetails(input: BoligInput): string {
-  return [
+  const lines: (string | null)[] = [
     "Adresse: " + input.address,
     "Boligtype: " + input.boligtype,
     "Størrelse: " + input.sqm + " kvm",
     input.rooms ? "Antall rom: " + input.rooms : null,
     input.floor ? "Etasje: " + input.floor : null,
     input.buildYear ? "Byggeår: " + input.buildYear : null,
+  ];
+
+  // Detaljert rominformasjon
+  if (input.roomDetails) {
+    const rd = input.roomDetails;
+    const romLines: string[] = [];
+    if (rd.soverom != null) romLines.push(`Soverom: ${rd.soverom}`);
+    if (rd.bad != null) romLines.push(`Bad: ${rd.bad}${rd.badRenovert ? " (nyoppusset)" : ""}`);
+    if (rd.wc) romLines.push(`Separat WC: ${rd.wc}`);
+    if (rd.stueType) romLines.push(`Stue: ${rd.stueType}`);
+    if (rd.kjokkenType || rd.kjokkenRenovert) {
+      const k = [rd.kjokkenType && `${rd.kjokkenType} kjøkken`, rd.kjokkenRenovert && "nyoppusset"].filter(Boolean).join(", ");
+      romLines.push(`Kjøkken: ${k}`);
+    }
+    const extras = [
+      rd.hasVaskerom && "eget vaskerom",
+      rd.hasHjemmekontor && "hjemmekontor",
+      rd.hasKjellerstue && "kjellerstue/hobbyrom",
+      rd.hasGarderoberom && "garderoberom",
+    ].filter(Boolean);
+    if (extras.length) romLines.push(`Ekstrarom: ${extras.join(", ")}`);
+    if (romLines.length) {
+      lines.push("Detaljert rominformasjon:\n" + romLines.map((l) => `  - ${l}`).join("\n"));
+    }
+  }
+
+  lines.push(
     input.audiences && input.audiences.length > 0
       ? "Målgruppe: " + input.audiences.join(", ")
       : null,
@@ -141,9 +183,9 @@ function buildDetails(input: BoligInput): string {
       ? "Høydepunkter (fritekst): " + input.highlights
       : null,
     input.notes ? "Egne notater: " + input.notes : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  );
+
+  return lines.filter(Boolean).join("\n");
 }
 
 // ── EXAMPLE OUTPUT (used when no API key) ────────────────────────────────────
