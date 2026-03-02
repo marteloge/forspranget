@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
 interface BoligInput {
@@ -11,9 +11,11 @@ interface BoligInput {
   highlights?: string;
   notes?: string;
   tone: "professional" | "warm" | "engaging";
+  previousFinnText?: string;
+  feedback?: string;
 }
 
-// ── SYSTEM PROMPT ────────────────────────────────────────────────────────────
+// ── SYSTEM PROMPTS ──────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `Du er en erfaren norsk eiendomsmegler-assistent som skriver boligannonser.
 Du skal generere tre tekster basert på boliginformasjonen du mottar:
 
@@ -42,12 +44,92 @@ Svar ALLTID i JSON-format:
 
 Skriv KUN på norsk (bokmål). Aldri engelsk.`;
 
+const REVISION_SYSTEM_PROMPT = `Du er en erfaren norsk eiendomsmegler-assistent som forbedrer boligannonser basert på feedback.
+
+Du mottar den forrige versjonen av boligtekstene og meglerens feedback. Din oppgave er å:
+1. Beholde den opprinnelige strukturen og gode elementer
+2. Gjøre spesifikke justeringer basert på feedbacken
+3. Forbedre helheten der det er naturlig
+
+Regler:
+- FINN-annonse: 200-350 ord, strukturert med avsnitt, norsk bokmål.
+- Instagram: Maks 150 ord, hook + emojis + CTA + hashtags.
+- SMS: Maks 160 tegn, adresse + nøkkelfaktor + CTA.
+
+Svar ALLTID i JSON-format:
+{"finn": "...", "instagram": "...", "sms": "..."}
+
+Skriv KUN på norsk (bokmål). Aldri engelsk.`;
+
 // ── TONE INSTRUCTIONS ────────────────────────────────────────────────────────
 const TONE_PROMPTS: Record<string, string> = {
   professional: "Bruk en profesjonell, saklig og tillitsvekkende tone. Fokus på fakta og kvalitet.",
   warm: "Bruk en varm, personlig og inviterende tone. Få leseren til å se seg selv bo der.",
   engaging: "Bruk en energisk, engasjerende og action-drevet tone. Skap begeistring og urgency.",
 };
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+
+/** Extract a JSON string value starting at position (after the opening quote).
+ *  Handles escape sequences including \n, \t, \\, \", \uXXXX. */
+function extractJsonStringValue(text: string, startIdx: number): string {
+  let result = "";
+  let i = startIdx;
+  while (i < text.length) {
+    if (text[i] === "\\") {
+      if (i + 1 >= text.length) break; // incomplete escape
+      const next = text[i + 1];
+      switch (next) {
+        case "n": result += "\n"; i += 2; break;
+        case "t": result += "\t"; i += 2; break;
+        case "r": result += "\r"; i += 2; break;
+        case '"': result += '"'; i += 2; break;
+        case "\\": result += "\\"; i += 2; break;
+        case "/": result += "/"; i += 2; break;
+        case "u":
+          if (i + 5 < text.length) {
+            const hex = text.slice(i + 2, i + 6);
+            const code = parseInt(hex, 16);
+            if (!isNaN(code)) {
+              result += String.fromCharCode(code);
+              i += 6;
+            } else {
+              result += next;
+              i += 2;
+            }
+          } else {
+            return result; // incomplete unicode escape — wait for more data
+          }
+          break;
+        default:
+          result += next;
+          i += 2;
+      }
+    } else if (text[i] === '"') {
+      break; // end of string value
+    } else {
+      result += text[i];
+      i++;
+    }
+  }
+  return result;
+}
+
+/** Build the details string from input fields. */
+function buildDetails(input: BoligInput): string {
+  return [
+    "Adresse: " + input.address,
+    "Boligtype: " + input.boligtype,
+    "Størrelse: " + input.sqm + " kvm",
+    input.rooms ? "Antall rom: " + input.rooms : null,
+    input.floor ? "Etasje: " + input.floor : null,
+    input.buildYear ? "Byggeår: " + input.buildYear : null,
+    input.highlights ? "Høydepunkter: " + input.highlights : null,
+    input.notes ? "Egne notater: " + input.notes : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
 
 // ── EXAMPLE OUTPUT (used when no API key) ────────────────────────────────────
 function getExampleOutput(input: BoligInput) {
@@ -143,56 +225,67 @@ export async function POST(request: NextRequest) {
     const input: BoligInput = await request.json();
 
     if (!input.address?.trim() || !input.sqm) {
-      return NextResponse.json(
-        { error: "Adresse og kvadratmeter er påkrevd." },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: "Adresse og kvadratmeter er påkrevd." }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
 
-    // If no API key, return example output
+    // If no API key, return example output as JSON (client handles both SSE and JSON)
     if (!apiKey) {
-      // Simulate a short delay for realism
       await new Promise((r) => setTimeout(r, 1500));
-      return NextResponse.json(getExampleOutput(input));
+      return new Response(JSON.stringify(getExampleOutput(input)), {
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    // Build user prompt
-    const details = [
-      `Adresse: ${input.address}`,
-      `Boligtype: ${input.boligtype}`,
-      `Størrelse: ${input.sqm} kvm`,
-      input.rooms ? `Antall rom: ${input.rooms}` : null,
-      input.floor ? `Etasje: ${input.floor}` : null,
-      input.buildYear ? `Byggeår: ${input.buildYear}` : null,
-      input.highlights ? `Høydepunkter: ${input.highlights}` : null,
-      input.notes ? `Egne notater: ${input.notes}` : null,
-    ]
-      .filter(Boolean)
-      .join("\n");
+    // ── Build messages ──
+    const isRevision = !!(input.previousFinnText && input.feedback);
+    const details = buildDetails(input);
+    const toneInstruction = TONE_PROMPTS[input.tone] || TONE_PROMPTS.professional;
 
-    const userPrompt = `${TONE_PROMPTS[input.tone] || TONE_PROMPTS.professional}
+    let systemContent: string;
+    let userContent: string;
 
-Generer boligtekster for denne eiendommen:
+    if (isRevision) {
+      systemContent = REVISION_SYSTEM_PROMPT;
+      userContent = [
+        toneInstruction,
+        "",
+        "Boliginfo:",
+        details,
+        "",
+        "Forrige FINN-annonse:",
+        input.previousFinnText,
+        "",
+        "Feedback fra megleren:",
+        input.feedback,
+        "",
+        "Generer en forbedret versjon av alle tre tekstene (FINN-annonse, Instagram-caption, SMS) basert på feedbacken.",
+      ].join("\n");
+    } else {
+      systemContent = SYSTEM_PROMPT;
+      userContent = toneInstruction + "\n\nGenerer boligtekster for denne eiendommen:\n\n" + details;
+    }
 
-${details}`;
-
-    // Call OpenAI
+    // ── Call OpenAI with streaming ──
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: "Bearer " + apiKey,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userPrompt },
+          { role: "system", content: systemContent },
+          { role: "user", content: userContent },
         ],
         temperature: 0.7,
         max_tokens: 2000,
+        stream: true,
         response_format: { type: "json_object" },
       }),
     });
@@ -200,33 +293,123 @@ ${details}`;
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       console.error("OpenAI error:", err);
-      return NextResponse.json(
-        { error: "Kunne ikke generere tekst. Prøv igjen." },
-        { status: 500 }
+      return new Response(
+        JSON.stringify({ error: "Kunne ikke generere tekst. Prøv igjen." }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    // ── Stream SSE to client ──
+    // Strategy: incrementally extract the "finn" value from the JSON being generated
+    // and stream it as finn_chunk events. At the end, parse the complete JSON for
+    // instagram and sms and send those as complete events.
+    const encoder = new TextEncoder();
 
-    if (!content) {
-      return NextResponse.json(
-        { error: "Tom respons fra AI. Prøv igjen." },
-        { status: 500 }
-      );
-    }
+    const stream = new ReadableStream({
+      async start(controller) {
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = "";
+        let finnValueStart = -1;
+        let finnSentLength = 0;
+        let sseBuffer = "";
 
-    const parsed = JSON.parse(content);
-    return NextResponse.json({
-      finn: parsed.finn || "",
-      instagram: parsed.instagram || "",
-      sms: parsed.sms || "",
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            sseBuffer += decoder.decode(value, { stream: true });
+            const lines = sseBuffer.split("\n");
+            sseBuffer = lines.pop() || "";
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith("data: ")) continue;
+              const data = trimmed.slice(6);
+              if (data === "[DONE]") continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta?.content;
+                if (!delta) continue;
+
+                accumulated += delta;
+
+                // Find the start of the "finn" value in the JSON
+                if (finnValueStart === -1) {
+                  const match = accumulated.match(/"finn"\s*:\s*"/);
+                  if (match) {
+                    finnValueStart = match.index! + match[0].length;
+                  }
+                }
+
+                // Stream finn text chunks incrementally
+                if (finnValueStart !== -1) {
+                  const finnText = extractJsonStringValue(accumulated, finnValueStart);
+                  if (finnText.length > finnSentLength) {
+                    const newPart = finnText.slice(finnSentLength);
+                    controller.enqueue(
+                      encoder.encode(
+                        "data: " + JSON.stringify({ type: "finn_chunk", text: newPart }) + "\n\n"
+                      )
+                    );
+                    finnSentLength = finnText.length;
+                  }
+                }
+              } catch {
+                // skip unparseable SSE lines
+              }
+            }
+          }
+
+          // ── Stream complete: parse full JSON for instagram + sms ──
+          try {
+            const result = JSON.parse(accumulated);
+            if (result.instagram) {
+              controller.enqueue(
+                encoder.encode(
+                  "data: " + JSON.stringify({ type: "instagram", text: result.instagram }) + "\n\n"
+                )
+              );
+            }
+            if (result.sms) {
+              controller.enqueue(
+                encoder.encode(
+                  "data: " + JSON.stringify({ type: "sms", text: result.sms }) + "\n\n"
+                )
+              );
+            }
+          } catch (parseErr) {
+            console.error("Failed to parse complete JSON:", parseErr, "accumulated:", accumulated.slice(0, 200));
+          }
+
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+        } catch (streamErr) {
+          console.error("Stream error:", streamErr);
+          controller.enqueue(
+            encoder.encode(
+              "data: " + JSON.stringify({ type: "error", text: "Streaming feilet. Prøv igjen." }) + "\n\n"
+            )
+          );
+        } finally {
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
     });
   } catch (e) {
     console.error("Generate error:", e);
-    return NextResponse.json(
-      { error: "Noe gikk galt. Prøv igjen." },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: "Noe gikk galt. Prøv igjen." }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }
