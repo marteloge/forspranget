@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   AUDIENCES,
   AUDIENCE_TILES,
@@ -11,6 +11,29 @@ import {
 } from "../data/boligtekst-tiles";
 
 // ── TYPES ────────────────────────────────────────────────────────────────────
+interface AddressSuggestion {
+  tekst: string;
+  lat: number;
+  lon: number;
+}
+
+interface MapItem {
+  name: string;
+  dist: string;
+}
+
+interface TransportItem extends MapItem {
+  type: string;
+}
+
+interface MapData {
+  sentrum: MapItem;
+  skoler: MapItem[];
+  barnehager: MapItem[];
+  butikker: MapItem[];
+  transport: TransportItem[];
+}
+
 interface GeneratedText {
   finn: string;
   instagram: string;
@@ -82,6 +105,16 @@ export default function BoligtekstView() {
   const [notes, setNotes] = useState("");
   const [tone, setTone] = useState<Tone>("professional");
 
+  // Address autocomplete + map data state
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [mapData, setMapData] = useState<MapData | null>(null);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [mapError, setMapError] = useState("");
+  const [selectedMapItems, setSelectedMapItems] = useState<Set<string>>(new Set());
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Room details state
   const [showRoomDetails, setShowRoomDetails] = useState(false);
   const [rdSoverom, setRdSoverom] = useState(2);
@@ -117,6 +150,64 @@ export default function BoligtekstView() {
   const canSubmit = address.trim() && sqm.trim();
   const activeVersion = versions.find((v) => v.id === activeVersionId) ?? null;
   const currentText = loading && streamingText ? streamingText : null;
+
+  // ── Address autocomplete ──
+  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setAddress(val);
+    setCoords(null);
+    setMapData(null);
+    setSelectedMapItems(new Set());
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (val.length < 4) { setAddressSuggestions([]); setShowSuggestions(false); return; }
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/address-search?q=${encodeURIComponent(val)}`);
+        const data = await res.json();
+        setAddressSuggestions(data.adresser || []);
+        setShowSuggestions((data.adresser || []).length > 0);
+      } catch { /* ignore */ }
+    }, 300);
+  };
+
+  const selectAddress = (s: AddressSuggestion) => {
+    setAddress(s.tekst);
+    setCoords({ lat: s.lat, lon: s.lon });
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+    fetchMapData(s.lat, s.lon);
+  };
+
+  // ── Map data fetch ──
+  const fetchMapData = useCallback(async (lat: number, lon: number) => {
+    setMapLoading(true);
+    setMapError("");
+    setMapData(null);
+    setSelectedMapItems(new Set());
+    try {
+      const res = await fetch(`/api/map-data?lat=${lat}&lon=${lon}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setMapData(data as MapData);
+    } catch (e) {
+      setMapError(e instanceof Error ? e.message : "Kunne ikke hente kartdata");
+    } finally {
+      setMapLoading(false);
+    }
+  }, []);
+
+  // ── Map item toggle ──
+  const toggleMapItem = (label: string) => {
+    setSelectedMapItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
+
+  // Cleanup debounce on unmount
+  useEffect(() => () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); }, []);
 
   // All tiles as flat lookup
   const allTilesFlat = useMemo(() => getAllTiles(), []);
@@ -208,6 +299,7 @@ export default function BoligtekstView() {
         selectedTiles: tileLabels.length > 0 ? tileLabels : undefined,
         previousFinnText: previousVersion?.texts.finn || undefined,
         feedback: feedbackText || undefined,
+        mapContext: selectedMapItems.size > 0 ? Array.from(selectedMapItems) : undefined,
         roomDetails: (rdSoverom !== 2 || rdBad !== 1 || rdWc > 0 || rdHasType || rdHasExtras) ? {
           soverom: rdSoverom,
           bad: rdBad,
@@ -224,7 +316,8 @@ export default function BoligtekstView() {
       };
     },
     [address, boligtype, sqm, rooms, floor, buildYear, highlights, notes, tone, versions, selectedAudiences, selectedTiles, tileById,
-     rdSoverom, rdBad, rdWc, rdStueType, rdKjokkenType, rdKjokkenRenovert, rdBadRenovert, rdVaskerom, rdHjemmekontor, rdKjellerstue, rdGarderoberom]
+     rdSoverom, rdBad, rdWc, rdStueType, rdKjokkenType, rdKjokkenRenovert, rdBadRenovert, rdVaskerom, rdHjemmekontor, rdKjellerstue, rdGarderoberom,
+     selectedMapItems]
   );
 
   // ── Generate ──
@@ -348,6 +441,25 @@ export default function BoligtekstView() {
           : activeVersion.texts.sms
       : "");
 
+  // ── Map chip renderer ──
+  const MapChip = ({ label }: { label: string }) => {
+    const active = selectedMapItems.has(label);
+    return (
+      <button
+        onClick={() => toggleMapItem(label)}
+        className={
+          "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all duration-150 whitespace-nowrap " +
+          (active
+            ? "bg-[#c9a96e]/20 border border-[#c9a96e]/40 text-[#c9a96e]"
+            : "bg-white/[0.03] border border-white/[0.06] text-gray-500 hover:text-gray-300")
+        }
+      >
+        {active && <span className="text-[8px]">✓</span>}
+        {label}
+      </button>
+    );
+  };
+
   // ── Tile chip renderer ──
   const TileChip = ({ tile }: { tile: Tile }) => {
     const active = selectedTiles.has(tile.id);
@@ -376,17 +488,106 @@ export default function BoligtekstView() {
             Boligdetaljer
           </h2>
 
-          {/* Address */}
-          <div className="mb-4">
-            <label className="text-[11px] text-gray-500 block mb-1.5">Adresse *</label>
+          {/* Address with autocomplete */}
+          <div className="mb-3 relative">
+            <label className="text-[11px] text-gray-500 block mb-1.5 flex items-center gap-1.5">
+              Adresse *
+              {coords && (
+                <span className="text-[9px] text-[#c9a96e]/60 flex items-center gap-0.5">
+                  <span>📍</span> koordinater hentet
+                </span>
+              )}
+            </label>
             <input
               type="text"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Thorvald Meyers gate 15, 0555 Oslo"
+              onChange={handleAddressChange}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              onFocus={() => addressSuggestions.length > 0 && setShowSuggestions(true)}
+              placeholder="Thorvald Meyers gate 15, Oslo"
               className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#c9a96e]/30 transition-colors"
             />
+            {showSuggestions && addressSuggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-[#0d1220] border border-white/[0.12] rounded-lg overflow-hidden z-50 shadow-2xl">
+                {addressSuggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onMouseDown={() => selectAddress(s)}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/[0.05] hover:text-[#c9a96e] transition-colors border-b border-white/[0.04] last:border-0 flex items-center gap-2"
+                  >
+                    <span className="text-[#c9a96e]/40 text-xs flex-shrink-0">📍</span>
+                    <span className="truncate">{s.tekst}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Kartdata */}
+          {(mapLoading || mapData || mapError) && (
+            <div className="mb-3 bg-white/[0.01] border border-white/[0.05] rounded-lg overflow-hidden">
+              <div className="px-3 py-1.5 border-b border-white/[0.05] flex items-center justify-between">
+                <span className="text-[9px] text-[#c9a96e]/50 uppercase tracking-[0.2em]">🗺️ Kartdata</span>
+                {selectedMapItems.size > 0 && (
+                  <span className="text-[9px] text-[#c9a96e]/70">{selectedMapItems.size} valgt</span>
+                )}
+              </div>
+              {mapLoading ? (
+                <div className="px-3 py-2.5 flex items-center gap-2 text-gray-600 text-[11px]">
+                  <div className="w-3 h-3 border border-gray-700 border-t-[#c9a96e] rounded-full animate-spin flex-shrink-0" />
+                  Henter nærhet fra OpenStreetMap…
+                </div>
+              ) : mapError ? (
+                <p className="px-3 py-2.5 text-[11px] text-red-400/60">{mapError}</p>
+              ) : mapData ? (
+                <div className="px-3 py-2.5 space-y-2.5">
+                  {/* Sentrum */}
+                  <div>
+                    <MapChip label={`🏙️ ${mapData.sentrum.dist} til ${mapData.sentrum.name}`} />
+                  </div>
+                  {/* Skoler */}
+                  {mapData.skoler.length > 0 && (
+                    <div>
+                      <span className="text-[8px] text-gray-700 uppercase tracking-[0.12em] block mb-1">🏫 Skoler</span>
+                      <div className="flex flex-wrap gap-1">
+                        {mapData.skoler.map((s) => <MapChip key={s.name} label={`${s.name} (${s.dist})`} />)}
+                      </div>
+                    </div>
+                  )}
+                  {/* Barnehager */}
+                  {mapData.barnehager.length > 0 && (
+                    <div>
+                      <span className="text-[8px] text-gray-700 uppercase tracking-[0.12em] block mb-1">🎨 Barnehager</span>
+                      <div className="flex flex-wrap gap-1">
+                        {mapData.barnehager.map((s) => <MapChip key={s.name} label={`${s.name} (${s.dist})`} />)}
+                      </div>
+                    </div>
+                  )}
+                  {/* Butikker */}
+                  {mapData.butikker.length > 0 && (
+                    <div>
+                      <span className="text-[8px] text-gray-700 uppercase tracking-[0.12em] block mb-1">🛒 Butikker</span>
+                      <div className="flex flex-wrap gap-1">
+                        {mapData.butikker.map((s) => <MapChip key={s.name} label={`${s.name} (${s.dist})`} />)}
+                      </div>
+                    </div>
+                  )}
+                  {/* Transport */}
+                  {mapData.transport.length > 0 && (
+                    <div>
+                      <span className="text-[8px] text-gray-700 uppercase tracking-[0.12em] block mb-1">🚇 Kollektiv</span>
+                      <div className="flex flex-wrap gap-1">
+                        {mapData.transport.map((s) => <MapChip key={s.name} label={`${s.type}: ${s.name} (${s.dist})`} />)}
+                      </div>
+                    </div>
+                  )}
+                  {selectedMapItems.size === 0 && (
+                    <p className="text-[9px] text-gray-700 pt-0.5">Huk av det du vil fremheve i annonsen</p>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          )}
 
           {/* Boligtype + sqm row */}
           <div className="flex gap-3 mb-4">
