@@ -106,21 +106,22 @@ export default function ProspekteringView() {
 
     L.control.zoom({ position: "topright" }).addTo(map);
 
-    const kartverket = L.tileLayer(
-      "https://opencache.statkart.no/gatekeeper/gk/gk.open_gmaps?layers=topo4&zoom={z}&x={x}&y={y}",
+    const darkTiles = L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
       {
-        attribution: '&copy; <a href="https://kartverket.no">Kartverket</a>',
-        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        subdomains: "abcd",
+        maxZoom: 20,
       }
     );
 
-    kartverket.on("tileerror", () => {
+    darkTiles.on("tileerror", () => {
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "&copy; OpenStreetMap",
       }).addTo(map);
     });
 
-    kartverket.addTo(map);
+    darkTiles.addTo(map);
     mapInstanceRef.current = map;
 
     return () => {
