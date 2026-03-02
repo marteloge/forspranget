@@ -11,6 +11,8 @@ interface BoligInput {
   highlights?: string;
   notes?: string;
   tone: "professional" | "warm" | "engaging";
+  audiences?: string[];
+  selectedTiles?: string[];
   previousFinnText?: string;
   feedback?: string;
 }
@@ -25,6 +27,9 @@ Du skal generere tre tekster basert på boliginformasjonen du mottar:
    - Fremhev emosjonelle kvaliteter (lys, romfølelse, sjarm) — ikke bare fakta.
    - Bruk norsk kjøpspsykologi: trygghet, fellesskap, livskvalitet.
    - Unngå klisjeer som "perle", "drømmebolig", "sjelden mulighet" med mindre det virkelig passer.
+   - Hvis en målgruppe er spesifisert, tilpass språk og vinklinger mot den målgruppen.
+     F.eks. barnefamilier: vektlegg trygghet, skolekrets, lekeplass. Førstegangskjøpere: pris, potensial, beliggenhet.
+   - Hvis spesifikke høydepunkter er valgt, sørg for at ALLE nevnte høydepunkter kommer naturlig frem i teksten.
    - Lengde: 200-350 ord.
 
 2. **Instagram-caption**: En kort, engasjerende tekst for Instagram.
@@ -124,7 +129,17 @@ function buildDetails(input: BoligInput): string {
     input.rooms ? "Antall rom: " + input.rooms : null,
     input.floor ? "Etasje: " + input.floor : null,
     input.buildYear ? "Byggeår: " + input.buildYear : null,
-    input.highlights ? "Høydepunkter: " + input.highlights : null,
+    input.audiences && input.audiences.length > 0
+      ? "Målgruppe: " + input.audiences.join(", ")
+      : null,
+    input.selectedTiles && input.selectedTiles.length > 0
+      ? "Valgte høydepunkter å fremheve: " + input.selectedTiles.join(", ")
+      : input.highlights
+        ? "Høydepunkter: " + input.highlights
+        : null,
+    input.highlights && input.selectedTiles && input.selectedTiles.length > 0
+      ? "Høydepunkter (fritekst): " + input.highlights
+      : null,
     input.notes ? "Egne notater: " + input.notes : null,
   ]
     .filter(Boolean)
