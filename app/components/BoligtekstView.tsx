@@ -75,7 +75,7 @@ const RoomCounter = ({
   label, value, onChange, min = 0, max = 9,
 }: { label: string; value: number; onChange: (v: number) => void; min?: number; max?: number }) => (
   <div className="flex-1 flex flex-col items-center">
-    <span className="text-[9px] text-gray-600 uppercase tracking-[0.15em] mb-1.5">{label}</span>
+    <span className="text-[10px] text-gray-400 uppercase tracking-[0.12em] mb-1.5">{label}</span>
     <div className="flex items-center gap-1">
       <button
         onClick={() => onChange(Math.max(min, value - 1))}
@@ -484,13 +484,13 @@ export default function BoligtekstView() {
       {/* ── LEFT: Form ── */}
       <aside className="w-[420px] min-w-[420px] bg-[#0d1220] border-r border-white/[0.06] flex flex-col overflow-y-auto">
         <div className="p-6">
-          <h2 className="text-[10px] text-[#c9a96e]/60 uppercase tracking-[0.25em] mb-6">
+          <h2 className="text-xs text-[#c9a96e]/70 uppercase tracking-[0.25em] mb-6">
             Boligdetaljer
           </h2>
 
           {/* Address with autocomplete */}
           <div className="mb-3 relative">
-            <label className="text-[11px] text-gray-500 block mb-1.5 flex items-center gap-1.5">
+            <label className="text-xs text-gray-400 block mb-1.5 flex items-center gap-1.5">
               Adresse *
               {coords && (
                 <span className="text-[9px] text-[#c9a96e]/60 flex items-center gap-0.5">
@@ -527,18 +527,18 @@ export default function BoligtekstView() {
           {(mapLoading || mapData || mapError) && (
             <div className="mb-3 bg-white/[0.01] border border-white/[0.05] rounded-lg overflow-hidden">
               <div className="px-3 py-1.5 border-b border-white/[0.05] flex items-center justify-between">
-                <span className="text-[9px] text-[#c9a96e]/50 uppercase tracking-[0.2em]">🗺️ Kartdata</span>
+                <span className="text-[11px] text-[#c9a96e]/60 uppercase tracking-[0.2em]">🗺️ Kartdata</span>
                 {selectedMapItems.size > 0 && (
-                  <span className="text-[9px] text-[#c9a96e]/70">{selectedMapItems.size} valgt</span>
+                  <span className="text-[11px] text-[#c9a96e]/70">{selectedMapItems.size} valgt</span>
                 )}
               </div>
               {mapLoading ? (
-                <div className="px-3 py-2.5 flex items-center gap-2 text-gray-600 text-[11px]">
+                <div className="px-3 py-2.5 flex items-center gap-2 text-gray-400 text-xs">
                   <div className="w-3 h-3 border border-gray-700 border-t-[#c9a96e] rounded-full animate-spin flex-shrink-0" />
                   Henter nærhet fra OpenStreetMap…
                 </div>
               ) : mapError ? (
-                <p className="px-3 py-2.5 text-[11px] text-red-400/60">{mapError}</p>
+                <p className="px-3 py-2.5 text-xs text-red-400/80">{mapError}</p>
               ) : mapData ? (
                 <div className="px-3 py-2.5 space-y-2.5">
                   {/* Sentrum */}
@@ -548,7 +548,7 @@ export default function BoligtekstView() {
                   {/* Skoler */}
                   {mapData.skoler.length > 0 && (
                     <div>
-                      <span className="text-[8px] text-gray-700 uppercase tracking-[0.12em] block mb-1">🏫 Skoler</span>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-[0.12em] block mb-1">🏫 Skoler</span>
                       <div className="flex flex-wrap gap-1">
                         {mapData.skoler.map((s) => <MapChip key={s.name} label={`${s.name} (${s.dist})`} />)}
                       </div>
@@ -557,7 +557,7 @@ export default function BoligtekstView() {
                   {/* Barnehager */}
                   {mapData.barnehager.length > 0 && (
                     <div>
-                      <span className="text-[8px] text-gray-700 uppercase tracking-[0.12em] block mb-1">🎨 Barnehager</span>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-[0.12em] block mb-1">🎨 Barnehager</span>
                       <div className="flex flex-wrap gap-1">
                         {mapData.barnehager.map((s) => <MapChip key={s.name} label={`${s.name} (${s.dist})`} />)}
                       </div>
@@ -566,7 +566,7 @@ export default function BoligtekstView() {
                   {/* Butikker */}
                   {mapData.butikker.length > 0 && (
                     <div>
-                      <span className="text-[8px] text-gray-700 uppercase tracking-[0.12em] block mb-1">🛒 Butikker</span>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-[0.12em] block mb-1">🛒 Butikker</span>
                       <div className="flex flex-wrap gap-1">
                         {mapData.butikker.map((s) => <MapChip key={s.name} label={`${s.name} (${s.dist})`} />)}
                       </div>
@@ -575,14 +575,14 @@ export default function BoligtekstView() {
                   {/* Transport */}
                   {mapData.transport.length > 0 && (
                     <div>
-                      <span className="text-[8px] text-gray-700 uppercase tracking-[0.12em] block mb-1">🚇 Kollektiv</span>
+                      <span className="text-[10px] text-gray-400 uppercase tracking-[0.12em] block mb-1">🚇 Kollektiv</span>
                       <div className="flex flex-wrap gap-1">
                         {mapData.transport.map((s) => <MapChip key={s.name} label={`${s.type}: ${s.name} (${s.dist})`} />)}
                       </div>
                     </div>
                   )}
                   {selectedMapItems.size === 0 && (
-                    <p className="text-[9px] text-gray-700 pt-0.5">Huk av det du vil fremheve i annonsen</p>
+                    <p className="text-[11px] text-gray-500 pt-0.5">Huk av det du vil fremheve i annonsen</p>
                   )}
                 </div>
               ) : null}
@@ -592,7 +592,7 @@ export default function BoligtekstView() {
           {/* Boligtype + sqm row */}
           <div className="flex gap-3 mb-4">
             <div className="flex-1">
-              <label className="text-[11px] text-gray-500 block mb-1.5">Boligtype</label>
+              <label className="text-xs text-gray-400 block mb-1.5">Boligtype</label>
               <select
                 value={boligtype}
                 onChange={(e) => setBoligtype(e.target.value)}
@@ -606,7 +606,7 @@ export default function BoligtekstView() {
               </select>
             </div>
             <div className="w-24">
-              <label className="text-[11px] text-gray-500 block mb-1.5">Kvm *</label>
+              <label className="text-xs text-gray-400 block mb-1.5">Kvm *</label>
               <input
                 type="number"
                 value={sqm}
@@ -620,7 +620,7 @@ export default function BoligtekstView() {
           {/* Rooms + Floor + Build year row */}
           <div className="flex gap-3 mb-4">
             <div className="flex-1">
-              <label className="text-[11px] text-gray-500 block mb-1.5">Antall rom</label>
+              <label className="text-xs text-gray-400 block mb-1.5">Antall rom</label>
               <input
                 type="number"
                 value={rooms}
@@ -630,7 +630,7 @@ export default function BoligtekstView() {
               />
             </div>
             <div className="flex-1">
-              <label className="text-[11px] text-gray-500 block mb-1.5">Etasje</label>
+              <label className="text-xs text-gray-400 block mb-1.5">Etasje</label>
               <input
                 type="text"
                 value={floor}
@@ -640,7 +640,7 @@ export default function BoligtekstView() {
               />
             </div>
             <div className="flex-1">
-              <label className="text-[11px] text-gray-500 block mb-1.5">Byggeår</label>
+              <label className="text-xs text-gray-400 block mb-1.5">Byggeår</label>
               <input
                 type="number"
                 value={buildYear}
@@ -657,12 +657,12 @@ export default function BoligtekstView() {
               onClick={() => setShowRoomDetails(!showRoomDetails)}
               className="flex items-center justify-between w-full text-left group mb-1"
             >
-              <span className="text-[11px] text-gray-500 group-hover:text-gray-400 transition-colors flex items-center gap-1.5">
+              <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors flex items-center gap-1.5">
                 Romdetaljer
                 {(rdStueType || rdKjokkenType || rdKjokkenRenovert || rdBadRenovert || rdVaskerom || rdHjemmekontor || rdKjellerstue || rdGarderoberom) && (
                   <span className="w-1.5 h-1.5 rounded-full bg-[#c9a96e]/60 inline-block" />
                 )}
-                <span className="text-gray-700 text-[10px] ml-0.5">(valgfritt)</span>
+                <span className="text-gray-500 text-[10px] ml-0.5">(valgfritt)</span>
               </span>
               <svg
                 className={"w-3.5 h-3.5 text-gray-600 transition-transform duration-200 " + (showRoomDetails ? "rotate-180" : "")}
@@ -683,7 +683,7 @@ export default function BoligtekstView() {
 
                 {/* Stue type */}
                 <div>
-                  <label className="text-[9px] text-gray-600 uppercase tracking-[0.15em] block mb-1.5">Stue</label>
+                  <label className="text-[11px] text-gray-400 uppercase tracking-[0.12em] block mb-1.5">Stue</label>
                   <div className="flex gap-1.5 flex-wrap">
                     {(["gjennomgående", "hjørne"] as const).map((t) => (
                       <button
@@ -697,7 +697,7 @@ export default function BoligtekstView() {
 
                 {/* Kjøkken + Bad */}
                 <div>
-                  <label className="text-[9px] text-gray-600 uppercase tracking-[0.15em] block mb-1.5">Kjøkken & Bad</label>
+                  <label className="text-[11px] text-gray-400 uppercase tracking-[0.12em] block mb-1.5">Kjøkken & Bad</label>
                   <div className="flex gap-1.5 flex-wrap">
                     {(["åpent", "eget"] as const).map((t) => (
                       <button
@@ -719,7 +719,7 @@ export default function BoligtekstView() {
 
                 {/* Ekstrarom */}
                 <div>
-                  <label className="text-[9px] text-gray-600 uppercase tracking-[0.15em] block mb-1.5">Ekstrarom</label>
+                  <label className="text-[11px] text-gray-400 uppercase tracking-[0.12em] block mb-1.5">Ekstrarom</label>
                   <div className="flex gap-1.5 flex-wrap">
                     {([
                       { active: rdVaskerom, set: setRdVaskerom, label: "👕 Vaskerom" },
@@ -741,9 +741,9 @@ export default function BoligtekstView() {
 
           {/* Notes */}
           <div className="mb-5">
-            <label className="text-[11px] text-gray-500 block mb-1.5">
+            <label className="text-xs text-gray-400 block mb-1.5">
               Egne notater
-              <span className="text-gray-700 ml-1">(visningsinntrykk, nabolag...)</span>
+              <span className="text-gray-500 ml-1">(visningsinntrykk, nabolag...)</span>
             </label>
             <textarea
               value={notes}
@@ -756,9 +756,9 @@ export default function BoligtekstView() {
 
           {/* ── MÅLGRUPPE ── */}
           <div className="mb-5">
-            <label className="text-[11px] text-gray-500 block mb-2">
+            <label className="text-xs text-gray-400 block mb-2">
               Målgruppe
-              <span className="text-gray-700 ml-1">(velg én eller flere)</span>
+              <span className="text-gray-500 ml-1">(velg én eller flere)</span>
             </label>
             <div className="grid grid-cols-2 gap-1.5">
               {AUDIENCES.map((a) => {
@@ -785,15 +785,15 @@ export default function BoligtekstView() {
           {/* ── SMART TILES (audience-specific) ── */}
           {selectedAudiences.size > 0 && (
             <div className="mb-5">
-              <label className="text-[11px] text-gray-500 block mb-2">
+              <label className="text-xs text-gray-400 block mb-2">
                 Høydepunkter
-                <span className="text-gray-700 ml-1">(klikk for å velge)</span>
+                <span className="text-gray-500 ml-1">(klikk for å velge)</span>
               </label>
 
               {/* Bolig features */}
               {mergedAudienceTiles.bolig.length > 0 && (
                 <div className="mb-3">
-                  <span className="text-[9px] text-[#c9a96e]/40 uppercase tracking-[0.2em] block mb-1.5">
+                  <span className="text-[11px] text-[#c9a96e]/50 uppercase tracking-[0.2em] block mb-1.5">
                     {CATEGORY_LABELS.bolig_features}
                   </span>
                   <div className="flex flex-wrap gap-1.5">
@@ -807,7 +807,7 @@ export default function BoligtekstView() {
               {/* Område features */}
               {mergedAudienceTiles.omrade.length > 0 && (
                 <div className="mb-3">
-                  <span className="text-[9px] text-[#c9a96e]/40 uppercase tracking-[0.2em] block mb-1.5">
+                  <span className="text-[11px] text-[#c9a96e]/50 uppercase tracking-[0.2em] block mb-1.5">
                     {CATEGORY_LABELS.omrade_features}
                   </span>
                   <div className="flex flex-wrap gap-1.5">
@@ -821,7 +821,7 @@ export default function BoligtekstView() {
               {/* Livsstil */}
               {mergedAudienceTiles.livsstil.length > 0 && (
                 <div className="mb-3">
-                  <span className="text-[9px] text-[#c9a96e]/40 uppercase tracking-[0.2em] block mb-1.5">
+                  <span className="text-[11px] text-[#c9a96e]/50 uppercase tracking-[0.2em] block mb-1.5">
                     {CATEGORY_LABELS.livsstil}
                   </span>
                   <div className="flex flex-wrap gap-1.5">
@@ -840,7 +840,7 @@ export default function BoligtekstView() {
               onClick={() => setShowUniversal(!showUniversal)}
               className="flex items-center justify-between w-full text-left group"
             >
-              <span className="text-[11px] text-gray-500 group-hover:text-gray-400 transition-colors">
+              <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors">
                 Generelle høydepunkter
               </span>
               <svg
@@ -861,7 +861,7 @@ export default function BoligtekstView() {
               <div className="mt-2 space-y-3">
                 {Object.entries(UNIVERSAL_TILES).map(([groupName, tiles]) => (
                   <div key={groupName}>
-                    <span className="text-[9px] text-[#c9a96e]/40 uppercase tracking-[0.2em] block mb-1.5">
+                    <span className="text-[11px] text-[#c9a96e]/50 uppercase tracking-[0.2em] block mb-1.5">
                       {groupName}
                     </span>
                     <div className="flex flex-wrap gap-1.5">
@@ -877,9 +877,9 @@ export default function BoligtekstView() {
 
           {/* Highlights textarea (preview) */}
           <div className="mb-5">
-            <label className="text-[11px] text-gray-500 block mb-1.5">
+            <label className="text-xs text-gray-400 block mb-1.5">
               Høydepunkter
-              <span className="text-gray-700 ml-1">(forhåndsvisning — redigerbar)</span>
+              <span className="text-gray-500 ml-1">(forhåndsvisning — redigerbar)</span>
             </label>
             <textarea
               value={highlights}
@@ -889,7 +889,7 @@ export default function BoligtekstView() {
               className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#c9a96e]/30 transition-colors resize-none"
             />
             {selectedTiles.size > 0 && (
-              <p className="text-[10px] text-gray-700 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 {selectedTiles.size} valgt
               </p>
             )}
@@ -897,7 +897,7 @@ export default function BoligtekstView() {
 
           {/* Tone selector */}
           <div className="mb-6">
-            <label className="text-[11px] text-gray-500 block mb-2.5">Tone</label>
+            <label className="text-xs text-gray-400 block mb-2.5">Tone</label>
             <div className="flex gap-2">
               {(Object.keys(TONE_LABELS) as Tone[]).map((t) => (
                 <button
@@ -911,7 +911,7 @@ export default function BoligtekstView() {
                   }
                 >
                   <div className="text-[11px] font-semibold">{TONE_LABELS[t].label}</div>
-                  <div className="text-[9px] mt-0.5 opacity-60">{TONE_LABELS[t].desc}</div>
+                  <div className="text-[10px] mt-0.5 opacity-75">{TONE_LABELS[t].desc}</div>
                 </button>
               ))}
             </div>
@@ -946,7 +946,7 @@ export default function BoligtekstView() {
         </div>
 
         {/* Bottom tip */}
-        <div className="mt-auto px-6 py-3 bg-white/[0.01] border-t border-white/[0.06] text-[10px] text-gray-600 tracking-wide">
+        <div className="mt-auto px-6 py-3 bg-white/[0.01] border-t border-white/[0.06] text-[10px] text-gray-500 tracking-wide">
           AI-generert &middot; Alltid kvalitetssjekk før publisering
         </div>
       </aside>
@@ -989,7 +989,7 @@ export default function BoligtekstView() {
                 >
                   <div className="text-2xl mb-2">{f.icon}</div>
                   <div className="text-[11px] font-semibold text-white mb-1">{f.title}</div>
-                  <div className="text-[10px] text-gray-600 leading-snug">{f.desc}</div>
+                  <div className="text-xs text-gray-500 leading-snug">{f.desc}</div>
                 </div>
               ))}
             </div>
@@ -1002,7 +1002,7 @@ export default function BoligtekstView() {
               {/* Version pills */}
               {versions.length > 1 && (
                 <div className="px-6 pt-3 flex items-center gap-2">
-                  <span className="text-[10px] text-gray-600 uppercase tracking-wider mr-1">Versjon:</span>
+                  <span className="text-xs text-gray-500 uppercase tracking-wider mr-1">Versjon:</span>
                   {versions.map((v, i) => (
                     <button
                       key={v.id}
@@ -1124,7 +1124,7 @@ export default function BoligtekstView() {
                 ) : displayText ? (
                   <>
                     {activeVersion?.feedback && (
-                      <div className="mb-3 flex items-center gap-2 text-[11px] text-gray-500">
+                      <div className="mb-3 flex items-center gap-2 text-xs text-gray-400">
                         <svg
                           className="w-3.5 h-3.5 text-[#c9a96e]/50"
                           fill="none"
@@ -1143,7 +1143,7 @@ export default function BoligtekstView() {
                     )}
 
                     <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-6">
-                      <pre className="whitespace-pre-wrap text-sm text-gray-300 leading-relaxed font-sans">
+                      <pre className="whitespace-pre-wrap text-[15px] text-gray-200 leading-relaxed font-sans">
                         {displayText}
                         {loading && (
                           <span className="inline-block w-0.5 h-4 bg-[#c9a96e] animate-pulse ml-0.5 align-text-bottom" />
@@ -1152,7 +1152,7 @@ export default function BoligtekstView() {
                     </div>
 
                     {!loading && (
-                      <div className="mt-3 flex items-center justify-between text-[10px] text-gray-600">
+                      <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
                         <span>
                           {displayText.split(/\s+/).filter(Boolean).length} ord &middot;{" "}
                           {displayText.length} tegn
@@ -1169,7 +1169,7 @@ export default function BoligtekstView() {
                 {/* ── Feedback + Regenerate ── */}
                 {!loading && versions.length > 0 && (
                   <div className="mt-6 border-t border-white/[0.06] pt-5">
-                    <label className="text-[10px] text-[#c9a96e]/60 uppercase tracking-[0.2em] block mb-2">
+                    <label className="text-xs text-[#c9a96e]/70 uppercase tracking-[0.2em] block mb-2">
                       Juster og generer ny versjon
                     </label>
                     <div className="flex gap-2">
@@ -1202,7 +1202,7 @@ export default function BoligtekstView() {
                         Ny versjon
                       </button>
                     </div>
-                    <p className="text-[10px] text-gray-700 mt-2">
+                    <p className="text-xs text-gray-500 mt-2">
                       Skriv hva du vil endre, så lager AI en ny versjon basert på feedbacken din.
                     </p>
                   </div>
